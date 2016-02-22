@@ -1,3 +1,4 @@
+# SEE: https://github.com/quinlan-lab/lab-wiki/blob/master/projects/residuals.md
 import sys
 
 from collections import defaultdict
@@ -32,6 +33,7 @@ def exonkey(csq):
     return csq['Feature'], csq['EXON']
 
 raise Exception("TODO: get GTF of exons and add that to output along with re-positioned variant within the transcripts")
+raise Exception("used bed files of coverage (read into InterLap) to limit to 80% of samples > 10X")
 print "#chrom\tstart\tend\taf\tfunctional\tgene\ttranscript\texon\timpact"
 for i, v in enumerate(exac, start=1):
     info = v.INFO
