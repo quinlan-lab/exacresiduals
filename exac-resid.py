@@ -114,8 +114,8 @@ keys = header.split("\t")
 for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
     rows = []
 
-    #gerp_array = read_gerp(chrom) # handle nans?
-    #coverage_array = read_coverage(chrom, depth=10)
+    gerp_array = read_gerp(chrom)
+    coverage_array = read_coverage(chrom, depth=10)
 
     for v in viter:
         if not (v.FILTER is None or v.FILTER == "PASS"):
@@ -144,7 +144,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             cdna_start=cdna_start,   cdna_end=cdna_end))
 
         # TODO: remove this. just testing on a subset.
-        if len(rows) > 100000: break
+        if len(rows) > 50000: break
 
     # now we need to sort and then group by transcript so we know the gaps.
     rows.sort(key=operator.itemgetter('transcript', 'start'))
@@ -166,8 +166,8 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             diff = row['cdna_start'] - last
             if istart == iend:
                 qstart, qend = row['start'] - diff, row['start']
-                row['gerp'] = "XX" # ",".join("%.2f" % g for g in gerp_array[qstart:qend])
-                row['coverage'] = "XX" # ",".join("%.2f" % g for g in coverage_array[qstart:qend])
+                row['gerp'] = ",".join("%.2f" % g for g in gerp_array[qstart:qend])
+                row['coverage'] = ",".join("%.2f" % g for g in coverage_array[qstart:qend])
                 row['posns'] = ",".join(map(str, range(qstart, qend)))
             else:
                 # loop over exons until we have queried diff bases.
@@ -179,11 +179,14 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                     # only required for the 1st time through the loop.
                     xstart = max(xstart, last)
                     xend = min(xend, xstart + diff) # dont read more than we need
-                    #L_gerp.extend("%.2f" % g for g in gerp_array[xstart:xend])
-                    #L_coverage.extend("%.2f" % g for g in coverage_array[xstart:xend])
+                    L_gerp.extend("%.2f" % g for g in gerp_array[xstart:xend])
+                    L_coverage.extend("%.2f" % g for g in coverage_array[xstart:xend])
                     L_posns.extend(str(s) for s in range(xstart, xend))
 
                     if len(L_posns) >= diff: break
+                row['gerp'] = "".join(L_gerp)
+                row['coverage'] = "".join(L_coverage)
+                row['posns'] = ",".join(L_posns)
 
             # TODO:
             # when i == len(trows) add an extra column to get to end of
