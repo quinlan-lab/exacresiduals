@@ -12,6 +12,12 @@ kcsq = exac["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
 
 exons = defaultdict(list)
 
+def read_gerp(chrom):
+    # TODO bigwig read
+
+def read_coverage(chrom, depth=10):
+    # TODO:
+
 
 def isfunctional(csq):
     return any(c in ('stop_gained', 'stop_lost', 'start_lost', 'initiator_codon_variant', 'rare_amino_acid_variant',
@@ -29,8 +35,8 @@ keys = header.split("\t")
 for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
     rows = []
 
-    gerp = read_gerp(chrom)
-    coverage = read_coverage(chrom)
+    gerp_array = read_gerp(chrom) # handle nans?
+    coverage_array = read_coverage(chrom, depth=10)
 
     for v in viter:
         if not (v.FILTER is None or v.FILTER == "PASS"):
@@ -65,19 +71,25 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
     # now we need to sort and then group by transcript so we know the gaps.
     rows.sort(key=operator.itemgetter('transcript', 'start'))
 
+    out = []
     for transcript, trows in it.groupby(rows, operator.itemgetter("transcript")):
         last = 0
-        for row in trows:
+        for i, row in enumerate(trows, start=1):
             diff = row['cdna_start'] - last
             qstart, qend = row['start'] - diff, row['start']
 
-            row['gerp'] = ",".join("%.2f" % g for g in GERP[qstart:qend])
-            row['coverage'] = ",".join("%.2f" % g for g in COVERAGE[qstart:qend])
+            row['gerp'] = ",".join("%.2f" % g for g in gerp_array[qstart:qend])
+            row['coverage'] = ",".join("%.2f" % g for g in coverage_array[qstart:qend])
 
-            last = row['cdna_end']
+            # TODO:
+            # when i == len(trows) add an extra column to get to end of
+            # transcript? or extra row?
 
-            print "\t".join(map(str, (d[k] for k in keys)))
+            last = row['cdna_end']  # or start?
 
+            out.append(row)
 
-
-
+    # still print in sorted order
+    out.sort(key=operator.itemgetter('start'))
+    for d in out:
+        print "\t".join(map(str, (d[k] for k in keys)))
