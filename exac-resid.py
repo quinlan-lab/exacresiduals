@@ -133,7 +133,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
 
         # skipping intronic
         if csq['Feature'] == '' or csq['EXON'] == '': continue
-
+        if not isfunctional(csq): continue
 
         cdna_start, cdna_end = get_cdna_start_end(csq['cDNA_position'])
 
@@ -168,11 +168,20 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 row['coverage'] = ",".join("%.2f" % g for g in coverage_array[qstart:qend])
                 row['posns'] = ",".join(map(str, range(qstart, qend)))
 
-                if row['posns'] == "":
+                # this can happend for UTR variants since we can't really get
+                # anything upstream of them.
+                if row['posns'] == "" and row['cdna_start'] > 0:
                     print "xxxxxxxx", i
                     print qstart, qend
                     print row['start'], diff
+                    print "cdna_start", row['cdna_start']
                     raise Exception(str(row))
+                if row['posns'] == "":  # UTR:
+                    p = row['start']
+                    row['gerp'] = ",".join("%.2f" % g for g in gerp_array[p:p+1])
+                    row['coverage'] = ",".join("%.2f" % g for g in coverage_array[p:p+1])
+                    row['posns'] = str(p)
+
             else:
                 # loop over exons until we have queried diff bases.
                 L_gerp, L_coverage, L_posns = [], [], []
