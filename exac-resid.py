@@ -1,22 +1,60 @@
 # SEE: https://github.com/quinlan-lab/lab-wiki/blob/master/projects/residuals.md
 import sys
+import os
 from collections import defaultdict
+import subprocess
 import operator
 import itertools as it
 
 from cyvcf2 import VCF
+import numpy as np
+from bw import BigWig
+
+def path(p):
+    return os.path.expanduser(os.path.expandvars(p))
+
+def read_gerp(chrom, gerp=BigWig(path("~u6000771/Projects/gemini_install/data/gemini_data/hg19.gerp.bw"))):
+    if not chrom.startswith("chr"):
+        chrom = "chr" + chrom
+    d = dict(gerp.chroms)
+    l = d[chrom]
+
+    return np.frombuffer(gerp.values(chrom, 0, l), dtype='f')
+
+
+def read_coverage(chrom, cov=10, length=249250621, path="~u6000771/Data/ExAC-coverage/"):
+    """
+    read ExAC coverage from a single chrom into a numpy array. If no length is
+    given, just use the one length from chrom 1.
+    path is expected to contain Panel.chr*
+    cov is the column to pull
+    """
+
+    cols = "chrom	pos	mean	median	1	5	10	15	20	25	30	50 100".split()
+    coli = cols.index(str(cov)) + 1
+
+    # just extract the position (2) and the requested column
+    p = subprocess.Popen("tabix {path}/Panel.chr{chrom}.coverage.txt.gz {chrom} | cut -f 2,{coli} ".format(**locals()),
+            stdout=subprocess.PIPE, stderr=sys.stderr,
+            shell=True,
+            executable=os.environ.get("SHELL"))
+
+    cov = np.zeros(length, dtype=np.float32)
+    j = 0
+    for line in p.stdout:
+        pos, val = line.split()
+        cov[int(pos)-1] = float(val)
+        j += 1
+    assert j > 0, ("no values found for", chrom, path)
+    p.wait()
+    if p.returncode != 0:
+        raise Exception("bad: %d", p.returncode)
+    return cov
+
 exac = VCF('/usr/local/src/gemini_install/data/gemini_data/ExAC.r0.3.sites.vep.tidy.vcf.gz')
 
 # CSQ keys
 kcsq = exac["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
-
-exons = defaultdict(list)
-
-def read_gerp(chrom):
-    # TODO bigwig read
-
-def read_coverage(chrom, depth=10):
-    # TODO:
 
 
 def isfunctional(csq):
@@ -25,10 +63,9 @@ def isfunctional(csq):
                      'splice_acceptor_variant', 'splice_donor_variant', 'frameshift_variant')
                for c in csq['Consequence'].split('&'))
 
-# TODO: add a column that has all coverage values (% @10X for max(current.transcript.start, previous.end + 1):current.start
-# TODO:                     ... same for GERP scores
-# A. groupby chromosome, then sort by (transcript, start).
-# B. read GERP chrom and coverage chrom into memory. then gerp = GERP[last_end:current_start]
+# TODO: read ensembl gtf into dict keyed by transcript with list of exons so
+# we know how far back to go. need function to get exon that current variant is
+# in.
 header = "chrom\tstart\tend\taf\tfunctional\tgene\ttranscript\texon\timpact\tcnda_start\tcdna_end\tcoverage\tgerp"
 print "#" + header
 keys = header.split("\t")
@@ -85,7 +122,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             # when i == len(trows) add an extra column to get to end of
             # transcript? or extra row?
 
-            last = row['cdna_end']  # or start?
+            last = row['cdna_end'] # or start?
 
             out.append(row)
 
