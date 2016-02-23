@@ -143,21 +143,18 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             impact=csq['Consequence'],
             cdna_start=cdna_start,   cdna_end=cdna_end))
 
-        # TODO: remove this. just testing on a subset.
-        if len(rows) > 20000: break
-
     # now we need to sort and then group by transcript so we know the gaps.
-    rows.sort(key=operator.itemgetter('transcript', 'start'))
+    rows.sort(key=operator.itemgetter('transcript', 'cdna_start'))
 
     out = []
     for transcript, trows in it.groupby(rows, operator.itemgetter("transcript")):
         last = 0
-
         exon_starts = transcript_exon_starts[transcript]
-
         for i, row in enumerate(trows, start=1):
 
 
+            # cdna start is only used to get the distances.
+            # use abosolute positions for everything else.
             istart = bisect_left(exon_starts, last)
             iend = bisect_left(exon_starts, row['cdna_start'])
 
@@ -170,11 +167,17 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 row['gerp'] = ",".join("%.2f" % g for g in gerp_array[qstart:qend])
                 row['coverage'] = ",".join("%.2f" % g for g in coverage_array[qstart:qend])
                 row['posns'] = ",".join(map(str, range(qstart, qend)))
+
+                if row['posns'] == "":
+                    print "xxxxxxxx", i
+                    print qstart, qend
+                    print row['start'], diff
+                    raise Exception(str(row))
             else:
                 # loop over exons until we have queried diff bases.
                 L_gerp, L_coverage, L_posns = [], [], []
                 exon_ends = transcript_exon_ends[transcript]
-                for xstart, xend in zip(exon_starts[istart-1:], exon_ends[istart-1:]):
+                for xstart, xend in zip(exon_starts[max(istart-1, 0):], exon_ends[max(istart-1, 0):]):
                     assert xstart <= xend
                     # had to go to start of exon so we take the max but this is
                     # only required for the 1st time through the loop.
@@ -182,7 +185,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                     # dont read more than we need
                     # end is the min of current exon and the amount we need to
                     # read to make len of diff
-                    xend = min(xend, xstart + diff + 1 - len(L_gerp))
+                    xend = min(xend, xstart + diff - len(L_gerp)) + 1
                     L_gerp.extend("%.2f" % g for g in gerp_array[xstart:xend])
                     L_coverage.extend("%.2f" % g for g in coverage_array[xstart:xend])
                     L_posns.extend(str(s) for s in range(xstart, xend))
@@ -196,7 +199,9 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             # when i == len(trows) add an extra column to get to end of
             # transcript? or extra row?
 
-            last = row['cdna_end'] # or start?
+            # start or end?
+            # if we use end then can have - diff.
+            last = row['cdna_start']
 
             out.append(row)
 
