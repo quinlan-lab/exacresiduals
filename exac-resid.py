@@ -91,7 +91,7 @@ def get_cdna_start_end(cdna_start):
         cdna_end = cdna_start + len(v.REF)
     return cdna_start, cdna_end
 
-exac = VCF('/usr/local/src/gemini_install/data/gemini_data/ExAC.r0.3.sites.vep.tidy.vcf.gz')
+exac = VCF(path('~u6000771/Projects/gemini_install/data/gemini_data/ExAC.r0.3.sites.vep.tidy.vcf.gz'))
 
 # CSQ keys
 kcsq = exac["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
@@ -115,7 +115,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
     rows = []
 
     gerp_array = read_gerp(chrom)
-    coverage_array = read_coverage(chrom, depth=10)
+    coverage_array = read_coverage(chrom, cov=10)
 
     for v in viter:
         if not (v.FILTER is None or v.FILTER == "PASS"):
@@ -144,7 +144,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             cdna_start=cdna_start,   cdna_end=cdna_end))
 
         # TODO: remove this. just testing on a subset.
-        if len(rows) > 50000: break
+        if len(rows) > 20000: break
 
     # now we need to sort and then group by transcript so we know the gaps.
     rows.sort(key=operator.itemgetter('transcript', 'start'))
@@ -165,7 +165,8 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             # scores with a single query
             diff = row['cdna_start'] - last
             if istart == iend:
-                qstart, qend = row['start'] - diff, row['start']
+                # add 1 so that we include the current base.
+                qstart, qend = row['start'] - diff, row['start'] + 1
                 row['gerp'] = ",".join("%.2f" % g for g in gerp_array[qstart:qend])
                 row['coverage'] = ",".join("%.2f" % g for g in coverage_array[qstart:qend])
                 row['posns'] = ",".join(map(str, range(qstart, qend)))
@@ -178,7 +179,10 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                     # had to go to start of exon so we take the max but this is
                     # only required for the 1st time through the loop.
                     xstart = max(xstart, last)
-                    xend = min(xend, xstart + diff) # dont read more than we need
+                    # dont read more than we need
+                    # end is the min of current exon and the amount we need to
+                    # read to make len of diff
+                    xend = min(xend, xstart + diff + 1 - len(L_gerp))
                     L_gerp.extend("%.2f" % g for g in gerp_array[xstart:xend])
                     L_coverage.extend("%.2f" % g for g in coverage_array[xstart:xend])
                     L_posns.extend(str(s) for s in range(xstart, xend))
