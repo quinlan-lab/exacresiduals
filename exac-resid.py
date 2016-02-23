@@ -1,10 +1,8 @@
 # SEE: https://github.com/quinlan-lab/lab-wiki/blob/master/projects/residuals.md
 import sys
-
 from collections import defaultdict
+
 from cyvcf2 import VCF
-import statsmodels.api as sm
-from statsmodels.stats.outliers_influence import OLSInfluence
 
 exac = VCF('/usr/local/src/gemini_install/data/gemini_data/ExAC.r0.3.sites.vep.tidy.vcf.gz')
 
@@ -20,22 +18,12 @@ def isfunctional(csq):
                      'splice_acceptor_variant', 'splice_donor_variant', 'frameshift_variant')
                for c in csq['Consequence'].split('&'))
 
-def exonkey(csq):
-    if csq['Feature'] == '':
-        return None
-    if csq['EXON'] == '':
-        return None
-        if csq['INTRON'] == '':
-            return None
-        else:
-            return "intron"+csq['INTRON'], csq['Feature']
-
-    return csq['Feature'], csq['EXON']
-
-raise Exception("TODO: get GTF of exons and add that to output along with re-positioned variant within the transcripts")
-raise Exception("used bed files of coverage (read into InterLap) to limit to 80% of samples > 10X")
-print "#chrom\tstart\tend\taf\tfunctional\tgene\ttranscript\texon\timpact"
+# TODO: add a column that has all coverage values (% @10X for max(current.transcript.start, previous.end + 1):current.start
+# TODO:                     ... same for GERP scores
+print "#chrom\tstart\tend\taf\tfunctional\tgene\ttranscript\texon\timpact\tcnda_start\tcdna_end"
 for i, v in enumerate(exac, start=1):
+    if not (v.FILTER is None or v.FILTER == "PASS"):
+        continue
     info = v.INFO
     try:
         csqs = [dict(zip(kcsq, c.split("|"))) for c in info['CSQ'].split(",")]
@@ -47,8 +35,15 @@ for i, v in enumerate(exac, start=1):
     except StopIteration:
         continue
 
-    key = exonkey(csq)
-    if key is None: continue
+    # skipping intronic
+    if csq['Feature'] == '' or csq['EXON'] == '': continue
+
+    cdna_start = csq['cDNA_position']
+    if "-" in cdna_start:
+        cdna_start, cdna_end = cdna_start.split("-")
+    else:
+        cdna_end = str(int(cdna_start) + len(v.REF))
 
     print "\t".join(map(str, (v.CHROM, v.start, v.end, af, int(isfunctional(csq)),
-        csq['SYMBOL'], csq['Feature'], csq['EXON'], csq['Consequence'])))
+                              csq['SYMBOL'], csq['Feature'], csq['EXON'], csq['Consequence'],
+                              cdna_start, cdna_end)))
