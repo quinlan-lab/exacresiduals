@@ -11,9 +11,9 @@ from bisect import bisect_left
 from cyvcf2 import VCF
 import numpy as np
 from bw import BigWig
+from pyfaidx import Fasta
 
 xopen = lambda f: (gzip.open if f.endswith(".gz") else open)(f)
-
 
 def path(p):
     return os.path.expanduser(os.path.expandvars(p))
@@ -52,6 +52,7 @@ def read_coverage(chrom, cov=10, length=249250621, path="~u6000771/Data/ExAC-cov
         pos, val = line.split()
         cov[int(pos)-1] = float(val)
         j += 1
+        #if j > 100000: break
     assert j > 0, ("no values found for", chrom, path)
     p.wait()
     if p.returncode != 0:
@@ -65,12 +66,14 @@ def read_exons(gtf):
     for toks in (x.rstrip('\r\n').split("\t") for x in xopen(gtf) if x[0] != "#"):
         if toks[2] not in("UTR", "exon"): continue
         start, end = map(int, toks[3:5])
+        assert start <= end, toks
         transcript = toks[8].split('transcript_id "')[1].split('"', 1)[0]
-        transcripts[transcript].append(start)
-        ends[transcript].append(end)
+        transcripts[transcript].append(start-1)
+        ends[transcript].append(end-1)
 
     # sort by start so we can do binary search.
     transcripts = dict((k, sorted(v)) for k, v in transcripts.iteritems())
+    ends = dict((k, sorted(v)) for k, v in ends.iteritems())
     return transcripts, ends
 
 
@@ -107,15 +110,22 @@ def isfunctional(csq):
 # we know how far back to go.
 transcript_exon_starts, transcript_exon_ends = read_exons("Homo_sapiens.GRCh37.75.gtf.gz")
 
+fasta = Fasta('/scratch/ucgd/lustre/u0045039/References/human_g1k_v37_decoy_phix/human_g1k_v37_decoy_phix.fasta', read_ahead=10000, as_raw=True)
+def cg_content(seq):
+    return 2.0 * seq.count('CG') / len(seq)
 
-header = "chrom\tstart\tend\taf\tfunctional\tgene\ttranscript\texon\timpact\tcdna_start\tcdna_end\tcoverage\tgerp\tposns"
+header = "chrom\tstart\tend\taf\tfunctional\tgene\ttranscript\texon\timpact\tvstart\tvend\tcg_content\tcdna_start\tcdna_end\tcoverage\tgerp\tranges\tposns"
 print "#" + header
 keys = header.split("\t")
 for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
     rows = []
+    print >>sys.stderr, "reading chrom",
+
+    fa = fasta[chrom]
 
     gerp_array = read_gerp(chrom)
-    coverage_array = read_coverage(chrom, cov=10)
+    coverage_array = read_coverage(chrom, length=len(gerp_array), cov=10)
+    print >>sys.stderr, chrom
 
     for v in viter:
         if not (v.FILTER is None or v.FILTER == "PASS"):
@@ -137,80 +147,90 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
 
         cdna_start, cdna_end = get_cdna_start_end(csq['cDNA_position'])
 
-        rows.append(dict(chrom=v.CHROM, start=v.start, end=v.end, af=af,
+        rows.append(dict(chrom=v.CHROM, vstart=v.start, vend=v.end, af=af,
             functional=int(isfunctional(csq)),
             gene=csq['SYMBOL'], transcript=csq['Feature'], exon=csq['EXON'],
             impact=csq['Consequence'],
             cdna_start=cdna_start,   cdna_end=cdna_end))
 
+
     # now we need to sort and then group by transcript so we know the gaps.
-    rows.sort(key=operator.itemgetter('transcript', 'cdna_start'))
+    rows.sort(key=operator.itemgetter('transcript', 'vstart'))
 
     out = []
     for transcript, trows in it.groupby(rows, operator.itemgetter("transcript")):
-        last = 0
         exon_starts = transcript_exon_starts[transcript]
+        last = exon_starts[0]
         for i, row in enumerate(trows, start=1):
-
-
-            # cdna start is only used to get the distances.
-            # use abosolute positions for everything else.
+            # istart and iend determin if we need to span exons.
             istart = bisect_left(exon_starts, last)
-            iend = bisect_left(exon_starts, row['cdna_start'])
+            iend = bisect_left(exon_starts, row['vstart'])
+            seqs = []
 
             # easy case is when variants are in in same exon; just grab all the
             # scores with a single query
-            diff = row['cdna_start'] - last
+            diff = row['vstart'] - last
+            assert diff >= 0, (i, diff, row, last)
+            row['ranges'] = []
             if istart == iend:
                 # add 1 so that we include the current base.
-                qstart, qend = row['start'] - diff, row['start'] + 1
+                qstart, qend = row['vstart'] - diff, row['vstart'] + 1
                 row['gerp'] = ",".join("%.2f" % g for g in gerp_array[qstart:qend])
                 row['coverage'] = ",".join("%.2f" % g for g in coverage_array[qstart:qend])
-                row['posns'] = ",".join(map(str, range(qstart, qend)))
+                row['posns'] = range(qstart, qend)
+                row['ranges'] = ["%d-%d" % (qstart, qend)]
+
+                seqs.append(fa[qstart-1:qend+1])
+                assert len(seqs[-1]) > 0, row
 
                 # this can happend for UTR variants since we can't really get
                 # anything upstream of them.
-                if row['posns'] == "" and row['cdna_start'] > 0:
-                    print "xxxxxxxx", i
-                    print qstart, qend
-                    print row['start'], diff
-                    print "cdna_start", row['cdna_start']
-                    raise Exception(str(row))
-                if row['posns'] == "":  # UTR:
-                    p = row['start']
+                if row['posns'] == []:  # UTR:
+                    p = row['vstart']
                     row['gerp'] = ",".join("%.2f" % g for g in gerp_array[p:p+1])
                     row['coverage'] = ",".join("%.2f" % g for g in coverage_array[p:p+1])
-                    row['posns'] = str(p)
+                    row['posns'] = [p]
 
             else:
                 # loop over exons until we have queried diff bases.
                 L_gerp, L_coverage, L_posns = [], [], []
                 exon_ends = transcript_exon_ends[transcript]
-                for xstart, xend in zip(exon_starts[max(istart-1, 0):], exon_ends[max(istart-1, 0):]):
+                for k, (xstart, xend) in enumerate(zip(exon_starts[max(istart-1, 0):], exon_ends[max(istart-1, 0):])):
                     assert xstart <= xend
                     # had to go to start of exon so we take the max but this is
                     # only required for the 1st time through the loop.
                     xstart = max(xstart, last)
+                    if xstart >= xend: continue
+
                     # dont read more than we need
                     # end is the min of current exon and the amount we need to
                     # read to make len of diff
                     xend = min(xend, xstart + diff - len(L_gerp)) + 1
                     L_gerp.extend("%.2f" % g for g in gerp_array[xstart:xend])
                     L_coverage.extend("%.2f" % g for g in coverage_array[xstart:xend])
-                    L_posns.extend(str(s) for s in range(xstart, xend))
+                    L_posns.extend(range(xstart, xend))
+                    row['ranges'].append("%d-%d" % (xstart, xend))
+                    seqs.append(fa[xstart - 1: xend + 1])
 
                     if len(L_posns) >= diff: break
-                row['gerp'] = "".join(L_gerp)
-                row['coverage'] = "".join(L_coverage)
-                row['posns'] = ",".join(L_posns)
+
+                assert len(L_posns) > 0
+
+                row['gerp'] = ",".join(L_gerp)
+                row['coverage'] = ",".join(L_coverage)
+                row['posns'] = L_posns
 
             # TODO:
             # when i == len(trows) add an extra column to get to end of
             # transcript? or extra row?
 
-            # start or end?
-            # if we use end then can have - diff.
-            last = row['cdna_start']
+            # start or end? if we use end then can have - diff.
+            row['ranges'] = ",".join(row['ranges'])
+            last = row['vstart']
+            row['start'] = str(min(row['posns']))
+            row['end'] = str(max(row['posns']))
+            row['posns'] = ",".join(map(str, row['posns']))
+            row['cg_content'] = np.mean([cg_content(s) for s in seqs])
 
             out.append(row)
 
