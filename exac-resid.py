@@ -12,6 +12,7 @@ from cyvcf2 import VCF
 import numpy as np
 from bw import BigWig
 from pyfaidx import Fasta
+import pyinter
 
 xopen = lambda f: (gzip.open if f.endswith(".gz") else open)(f)
 
@@ -64,20 +65,26 @@ def read_coverage(chrom, cov=10, length=249250621, path="~u6000771/Data/ExAC-cov
 
 
 def read_exons(gtf):
-    transcripts = defaultdict(list)
-    ends = defaultdict(list)
+    transcripts = defaultdict(pyinter.IntervalSet)
+
     for toks in (x.rstrip('\r\n').split("\t") for x in xopen(gtf) if x[0] != "#"):
+        if toks[0] != '5': continue
         if toks[2] not in("UTR", "exon"): continue
         start, end = map(int, toks[3:5])
         assert start <= end, toks
         transcript = toks[8].split('transcript_id "')[1].split('"', 1)[0]
-        transcripts[transcript].append(start-1)
-        ends[transcript].append(end-1)
+        transcripts[transcript].add(pyinter.closedopen(start-1, end))
 
     # sort by start so we can do binary search.
+    # TODO: need to remove overlapping exons so we don't double-count
     transcripts = dict((k, sorted(v)) for k, v in transcripts.iteritems())
-    ends = dict((k, sorted(v)) for k, v in ends.iteritems())
-    return transcripts, ends
+    #ends = dict((k, sorted(v)) for k, v in ends.iteritems())
+    starts, ends = {}, {}
+    for tr, ivset in transcripts.iteritems():
+        sends = sorted(list(ivset))
+        starts[tr] = [x.lower_value for x in sends]
+        ends[tr] = [x.upper_value for x in sends]
+    return starts, ends
 
 
 def get_cdna_start_end(cdna_start):
@@ -97,7 +104,7 @@ def get_cdna_start_end(cdna_start):
         cdna_end = cdna_start + len(v.REF)
     return cdna_start, cdna_end
 
-exac = VCF(path('~u6000771/Projects/gemini_install/data/gemini_data/ExAC.r0.3.sites.vep.tidy.vcf.gz'))
+exac = VCF('/uufs/chpc.utah.edu/common/home/u6000771/Projects/gemini_install/data/gemini_data/ExAC.r0.3.sites.vep.tidy.vcf.gz')
 
 # CSQ keys
 kcsq = exac["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
@@ -117,10 +124,10 @@ fasta = Fasta('/scratch/ucgd/lustre/u0045039/References/human_g1k_v37_decoy_phix
 def cg_content(seq):
     return 2.0 * seq.count('CG') / len(seq)
 
-header = "chrom\tstart\tend\taf\tfunctional\tgene\ttranscript\texon\timpact\tvstart\tvend\tcg_content\tcdna_start\tcdna_end\tcoverage\tgerp\tranges\tposns"
+header = "chrom\tstart\tend\taf\tfunctional\tgene\ttranscript\texon\timpact\tvstart\tvend\tn_bases\tcg_content\tcdna_start\tcdna_end\tcoverage\tgerp\tranges\tposns"
 print "#" + header
 keys = header.split("\t")
-for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
+for chrom, viter in it.groupby(exac('5:112127143-112128226'), operator.attrgetter("CHROM")):
     rows = []
     print >>sys.stderr, "reading chrom",
 
@@ -158,13 +165,15 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
 
 
     # now we need to sort and then group by transcript so we know the gaps.
-    rows.sort(key=operator.itemgetter('transcript', 'vstart'))
+    rows.sort(key=operator.itemgetter('transcript', 'vstart', 'vend'))
+    print len(rows)
 
     out = []
     for transcript, trows in it.groupby(rows, operator.itemgetter("transcript")):
         exon_starts = transcript_exon_starts[transcript]
         exon_ends = transcript_exon_ends[transcript]
         last = exon_starts[0]
+        print zip(exon_starts, exon_ends)
         for i, row in enumerate(trows, start=1):
             # istart and iend determin if we need to span exons.
             istart = bisect_left(exon_starts, last)
@@ -175,11 +184,16 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             # easy case is when variants are in in same exon; just grab all the
             # scores with a single query
             diff = row['vstart'] - last
-            assert diff >= 0, (i, diff, row, last)
+            if diff == 0:
+                # always need at least 1. this happens with multiallelics.
+                diff = 1
+            assert diff > 0, (i, diff, row, last)
             row['ranges'] = []
             if istart == iend:
+                print "xx:", row
                 # add 1 so that we include the current base.
-                qstart, qend = row['vstart'] - diff, row['vstart'] + 1
+                # debug: continue
+                qstart, qend = (row['vstart'] - diff), (row['vstart'] + 1)
                 row['gerp'] = ",".join(floatfmt(g) for g in gerp_array[qstart:qend])
                 row['coverage'] = ",".join(floatfmt(g) for g in coverage_array[qstart:qend])
                 row['posns'] = range(qstart, qend)
@@ -197,6 +211,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                     row['posns'] = [p]
 
             else:
+                print row
                 # loop over exons until we have queried diff bases.
                 L_gerp, L_coverage, L_posns = [], [], []
                 for k, (xstart, xend) in enumerate(zip(exon_starts[max(istart-1, 0):], exon_ends[max(istart-1, 0):])):
@@ -205,6 +220,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                     # only required for the 1st time through the loop.
                     xstart = max(xstart, last)
                     if xstart >= xend: continue
+                    print xstart, xend
 
                     # dont read more than we need
                     # end is the min of current exon and the amount we need to
@@ -231,6 +247,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             # start or end? if we use end then can have - diff.
             row['ranges'] = ",".join(row['ranges'])
             last = row['vstart']
+            row['n_bases'] = len(row['posns'])
             row['start'] = str(min(row['posns']))
             row['end'] = str(max(row['posns']))
             row['posns'] = ",".join(map(str, row['posns']))

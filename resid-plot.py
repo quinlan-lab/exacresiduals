@@ -55,7 +55,7 @@ plt.plot([0, max(cgs)], l)
 plt.title("split by missense")
 plt.xlabel("sum(coverage)")
 plt.ylabel("sum(cov * g for cov, g in zip(coverage, gerp))")
-plt.show()
+#plt.show()
 
 resid = results.resid
 resid = OLSInfluence(results).get_resid_studentized_external()
