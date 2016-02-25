@@ -29,6 +29,9 @@ def read_gerp(chrom, gerp_path=path("~u6000771/Projects/gemini_install/data/gemi
     return np.frombuffer(gerp.values(chrom, 0, l), dtype='f')
 
 
+def floatfmt(v, prec="%.2f"):
+    return (prec % v).rstrip('0').rstrip('.')
+
 def read_coverage(chrom, cov=10, length=249250621, path="~u6000771/Data/ExAC-coverage/"):
     """
     read ExAC coverage from a single chrom into a numpy array. If no length is
@@ -142,7 +145,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             continue
 
         # skipping intronic
-        if csq['Feature'] == '' or csq['EXON'] == '': continue
+        if csq['Feature'] == '' or csq['EXON'] == '' or csq['cDNA_position'] == '': continue
         if not isfunctional(csq): continue
 
         cdna_start, cdna_end = get_cdna_start_end(csq['cDNA_position'])
@@ -160,12 +163,14 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
     out = []
     for transcript, trows in it.groupby(rows, operator.itemgetter("transcript")):
         exon_starts = transcript_exon_starts[transcript]
+        exon_ends = transcript_exon_ends[transcript]
         last = exon_starts[0]
         for i, row in enumerate(trows, start=1):
             # istart and iend determin if we need to span exons.
             istart = bisect_left(exon_starts, last)
             iend = bisect_left(exon_starts, row['vstart'])
             seqs = []
+            assert row['vstart'] <= exon_ends[-1], (row, exon_ends)
 
             # easy case is when variants are in in same exon; just grab all the
             # scores with a single query
@@ -175,8 +180,8 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             if istart == iend:
                 # add 1 so that we include the current base.
                 qstart, qend = row['vstart'] - diff, row['vstart'] + 1
-                row['gerp'] = ",".join("%.2f" % g for g in gerp_array[qstart:qend])
-                row['coverage'] = ",".join("%.2f" % g for g in coverage_array[qstart:qend])
+                row['gerp'] = ",".join(floatfmt(g) for g in gerp_array[qstart:qend])
+                row['coverage'] = ",".join(floatfmt(g) for g in coverage_array[qstart:qend])
                 row['posns'] = range(qstart, qend)
                 row['ranges'] = ["%d-%d" % (qstart, qend)]
 
@@ -187,14 +192,13 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 # anything upstream of them.
                 if row['posns'] == []:  # UTR:
                     p = row['vstart']
-                    row['gerp'] = ",".join("%.2f" % g for g in gerp_array[p:p+1])
-                    row['coverage'] = ",".join("%.2f" % g for g in coverage_array[p:p+1])
+                    row['gerp'] = ",".join(floatfmt(g) for g in gerp_array[p:p+1])
+                    row['coverage'] = ",".join(floatfmt(g) for g in coverage_array[p:p+1])
                     row['posns'] = [p]
 
             else:
                 # loop over exons until we have queried diff bases.
                 L_gerp, L_coverage, L_posns = [], [], []
-                exon_ends = transcript_exon_ends[transcript]
                 for k, (xstart, xend) in enumerate(zip(exon_starts[max(istart-1, 0):], exon_ends[max(istart-1, 0):])):
                     assert xstart <= xend
                     # had to go to start of exon so we take the max but this is
@@ -206,8 +210,8 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                     # end is the min of current exon and the amount we need to
                     # read to make len of diff
                     xend = min(xend, xstart + diff - len(L_gerp)) + 1
-                    L_gerp.extend("%.2f" % g for g in gerp_array[xstart:xend])
-                    L_coverage.extend("%.2f" % g for g in coverage_array[xstart:xend])
+                    L_gerp.extend(floatfmt(g) for g in gerp_array[xstart:xend])
+                    L_coverage.extend(floatfmt(g) for g in coverage_array[xstart:xend])
                     L_posns.extend(range(xstart, xend))
                     row['ranges'].append("%d-%d" % (xstart, xend))
                     seqs.append(fa[xstart - 1: xend + 1])
@@ -230,7 +234,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             row['start'] = str(min(row['posns']))
             row['end'] = str(max(row['posns']))
             row['posns'] = ",".join(map(str, row['posns']))
-            row['cg_content'] = np.mean([cg_content(s) for s in seqs])
+            row['cg_content'] = floatfmt(np.mean([cg_content(s) for s in seqs]))
 
             out.append(row)
 
