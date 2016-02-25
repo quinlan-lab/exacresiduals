@@ -68,7 +68,6 @@ def read_exons(gtf):
     transcripts = defaultdict(pyinter.IntervalSet)
 
     for toks in (x.rstrip('\r\n').split("\t") for x in xopen(gtf) if x[0] != "#"):
-        if toks[0] != '5': continue
         if toks[2] not in("UTR", "exon"): continue
         start, end = map(int, toks[3:5])
         assert start <= end, toks
@@ -127,7 +126,7 @@ def cg_content(seq):
 header = "chrom\tstart\tend\taf\tfunctional\tgene\ttranscript\texon\timpact\tvstart\tvend\tn_bases\tcg_content\tcdna_start\tcdna_end\tcoverage\tgerp\tranges\tposns"
 print "#" + header
 keys = header.split("\t")
-for chrom, viter in it.groupby(exac('5:112127143-112128226'), operator.attrgetter("CHROM")):
+for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
     rows = []
     print >>sys.stderr, "reading chrom",
 
@@ -138,6 +137,8 @@ for chrom, viter in it.groupby(exac('5:112127143-112128226'), operator.attrgette
     print >>sys.stderr, chrom
 
     for v in viter:
+
+
         if not (v.FILTER is None or v.FILTER == "PASS"):
             continue
         info = v.INFO
@@ -146,34 +147,28 @@ for chrom, viter in it.groupby(exac('5:112127143-112128226'), operator.attrgette
         except KeyError:
             continue
         af = info['AC_Adj'] / float(info['AN_Adj'] or 1)
-        try:
-            csq = next(c for c in csqs if c['CANONICAL'] == 'YES' and c['Allele'] == v.ALT[0])
-        except StopIteration:
-            continue
+        for csq in (c for c in csqs if c['CANONICAL'] == 'YES' and c['Allele'] == v.ALT[0]):
+            # skipping intronic
+            if csq['Feature'] == '' or csq['EXON'] == '' or csq['cDNA_position'] == '': continue
+            if not isfunctional(csq): continue
 
-        # skipping intronic
-        if csq['Feature'] == '' or csq['EXON'] == '' or csq['cDNA_position'] == '': continue
-        if not isfunctional(csq): continue
+            cdna_start, cdna_end = get_cdna_start_end(csq['cDNA_position'])
 
-        cdna_start, cdna_end = get_cdna_start_end(csq['cDNA_position'])
-
-        rows.append(dict(chrom=v.CHROM, vstart=v.start, vend=v.end, af=af,
-            functional=int(isfunctional(csq)),
-            gene=csq['SYMBOL'], transcript=csq['Feature'], exon=csq['EXON'],
-            impact=csq['Consequence'],
-            cdna_start=cdna_start,   cdna_end=cdna_end))
+            rows.append(dict(chrom=v.CHROM, vstart=v.start, vend=v.end, af=af,
+                functional=int(isfunctional(csq)),
+                gene=csq['SYMBOL'], transcript=csq['Feature'], exon=csq['EXON'],
+                impact=csq['Consequence'],
+                cdna_start=cdna_start,   cdna_end=cdna_end))
 
 
     # now we need to sort and then group by transcript so we know the gaps.
     rows.sort(key=operator.itemgetter('transcript', 'vstart', 'vend'))
-    print len(rows)
 
     out = []
     for transcript, trows in it.groupby(rows, operator.itemgetter("transcript")):
         exon_starts = transcript_exon_starts[transcript]
         exon_ends = transcript_exon_ends[transcript]
         last = exon_starts[0]
-        print zip(exon_starts, exon_ends)
         for i, row in enumerate(trows, start=1):
             # istart and iend determin if we need to span exons.
             istart = bisect_left(exon_starts, last)
@@ -190,7 +185,6 @@ for chrom, viter in it.groupby(exac('5:112127143-112128226'), operator.attrgette
             assert diff > 0, (i, diff, row, last)
             row['ranges'] = []
             if istart == iend:
-                print "xx:", row
                 # add 1 so that we include the current base.
                 # debug: continue
                 qstart, qend = (row['vstart'] - diff), (row['vstart'] + 1)
@@ -211,7 +205,6 @@ for chrom, viter in it.groupby(exac('5:112127143-112128226'), operator.attrgette
                     row['posns'] = [p]
 
             else:
-                print row
                 # loop over exons until we have queried diff bases.
                 L_gerp, L_coverage, L_posns = [], [], []
                 for k, (xstart, xend) in enumerate(zip(exon_starts[max(istart-1, 0):], exon_ends[max(istart-1, 0):])):
@@ -220,7 +213,6 @@ for chrom, viter in it.groupby(exac('5:112127143-112128226'), operator.attrgette
                     # only required for the 1st time through the loop.
                     xstart = max(xstart, last)
                     if xstart >= xend: continue
-                    print xstart, xend
 
                     # dont read more than we need
                     # end is the min of current exon and the amount we need to
