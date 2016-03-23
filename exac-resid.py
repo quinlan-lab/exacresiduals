@@ -119,8 +119,9 @@ def isfunctional(csq):
 # we know how far back to go.
 transcript_exon_starts, transcript_exon_ends = read_exons("Homo_sapiens.GRCh37.75.gtf.gz")
 
-fasta = Fasta('/scratch/ucgd/lustre/u0045039/References/human_g1k_v37_decoy_phix/human_g1k_v37_decoy_phix.fasta', read_ahead=10000, as_raw=True)
+fasta = Fasta('/uufs/chpc.utah.edu/common/home/u6000771/Data/data/hs37d5.fa', read_ahead=10000, as_raw=True)
 def cg_content(seq):
+    if len(seq) == 0: return 0
     return 2.0 * seq.count('CG') / len(seq)
 
 header = "chrom\tstart\tend\taf\tfunctional\tgene\ttranscript\texon\timpact\tvstart\tvend\tn_bases\tcg_content\tcdna_start\tcdna_end\tcoverage\tgerp\tranges\tposns"
@@ -217,7 +218,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                     # dont read more than we need
                     # end is the min of current exon and the amount we need to
                     # read to make len of diff
-                    xend = min(xend, xstart + diff - len(L_gerp)) + 1
+                    xend = min(xend, xstart + diff - len(L_gerp), row['vstart']) + 1
                     L_gerp.extend(floatfmt(g) for g in gerp_array[xstart:xend])
                     L_coverage.extend(floatfmt(g) for g in coverage_array[xstart:xend])
                     L_posns.extend(range(xstart, xend))
