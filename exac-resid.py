@@ -103,7 +103,7 @@ def get_cdna_start_end(cdna_start):
         cdna_end = cdna_start + len(v.REF)
     return cdna_start, cdna_end
 
-exac = VCF('/uufs/chpc.utah.edu/common/home/u6000771/Projects/gemini_install/data/gemini_data/ExAC.r0.3.sites.vep.tidy.vcf.gz')
+exac = VCF('/scratch/ucgd/lustre/u1021864/serial/ExAC.r0.3.sites.vep.tidy.vcf.gz')
 
 # CSQ keys
 kcsq = exac["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
@@ -117,7 +117,7 @@ def isfunctional(csq):
 
 # read ensembl gtf into dict keyed by transcript with list of exons so
 # we know how far back to go.
-transcript_exon_starts, transcript_exon_ends = read_exons("Homo_sapiens.GRCh37.75.gtf.gz")
+transcript_exon_starts, transcript_exon_ends = read_exons("/scratch/ucgd/lustre/u1021864/serial/Homo_sapiens.GRCh37.75.gtf.gz")
 
 fasta = Fasta('/uufs/chpc.utah.edu/common/home/u6000771/Data/data/hs37d5.fa', read_ahead=10000, as_raw=True)
 def cg_content(seq):
