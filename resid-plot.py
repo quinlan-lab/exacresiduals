@@ -22,9 +22,8 @@ def fn(scores, covs):
 
 sigma = []
 cgs, zs, xs, ys, genes = [], [], [], [], []
-try:
-    for i, d in enumerate(ts.reader(1)):
-        gerps = [float(x)+13 for x in d['gerp'].split(",")]
+for i, d in enumerate(ts.reader(1)):
+        gerps = [float(x) for x in d['gerp'].split(",")]
         genes.append((d['chrom'], str(d['start']), str(d['end']), d['gene'],
             d['exon'], str(len(gerps))))
 
@@ -39,8 +38,6 @@ try:
         # just subtract scaled gerp from scaled coverage.
         zs.append(sum(cov - g / 25. for cov, g in zip(coverage, gerps) if cov >
             cutoff))
-except:
-    raise
 
 X = pd.DataFrame({"CpG": cgs, "sum-coverage": xs})
 #X = np.array(cgs)
