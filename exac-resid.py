@@ -7,6 +7,7 @@ import subprocess
 import operator
 import itertools as it
 from bisect import bisect_left
+from itertools import chain
 
 from cyvcf2 import VCF
 import numpy as np
@@ -14,11 +15,70 @@ from bw import BigWig
 from pyfaidx import Fasta
 import pyinter
 
+from bisect import bisect_left
+
+def get_ranges(last, vstart, exon_starts, exon_ends):
+    """
+    >>> get_ranges(61018, 62029, (
+    ... 60174, 60370, 60665, 60925, 62029, 62216, 62453,
+    ... 62675, 63052, 63398, 63652, 63868, 64512, 64764,
+    ... 65018, 65671), (60281,
+    ... 60565, 60808, 61033, 62134, 62379, 62587, 62824,
+    ... 63209, 63559, 63779, 64102, 64691, 64946, 65084,
+    ... 65985))
+    [(61018, 61034), (62029, 62030)]
+
+    >>> get_ranges(56, 95, range(0, 1000, 10), range(5, 1000, 10))
+    [(60, 66), (70, 76), (80, 86), (90, 96)]
+
+    >>> get_ranges(1, 10, range(0, 100, 10), range(5, 100, 10))
+    [(1, 6), (10, 11)]
+
+    >>> get_ranges(0, 10, range(0, 100, 10), range(5, 100, 10))
+    [(0, 6), (10, 11)]
+
+    >>> get_ranges(50, 60, (10,),(100,))
+    [(50, 61)]
+
+    >>> get_ranges(50, 60, (10,),(100,))
+    [(50, 61)]
+
+    >>> get_ranges(1562576, 1562675,
+    ... (1560665, 1560925, 1562029, 1562216, 1562453, 1562675, 1563052, 1563398, 1563652, 1563868, 1564512, 1564764, 1565018, 1565671),
+    ... (1560808, 1561033, 1562134, 1562379, 1562587, 1562824, 1563209, 1563559, 1563779, 1564102, 1564691, 1564946, 1565084, 1565985))
+    [(1562576, 1562588), (1562675, 1562676)]
+    """
+
+    assert last >= exon_starts[0]
+    assert vstart <= exon_ends[-1]
+    assert vstart >= last
+    assert all(s < e for s, e in zip(exon_starts, exon_ends))
+
+    istart = bisect_left(exon_starts, last) - 1
+    if istart == -1: istart = 0
+    [(0, 6), (10, 11)]
+
+    assert exon_starts[istart] <= last, (exon_starts[istart], last, istart)
+    if exon_ends[istart] <= last:
+        istart += 1
+        last = exon_starts[istart]
+
+    start = last
+    ranges = []
+    while start <= vstart and istart < len(exon_starts):
+        ranges.append((start, exon_ends[istart] + 1))
+        istart += 1
+        if ranges[-1][1] > vstart:
+            ranges[-1] = (ranges[-1][0], vstart + 1)
+            break
+        start = exon_starts[istart]
+
+    return ranges
+
 xopen = lambda f: (gzip.open if f.endswith(".gz") else open)(f)
 
 def path(p):
     return os.path.expanduser(os.path.expandvars(p))
-
 
 def read_gerp(chrom, gerp_path=path("~u6000771/Projects/gemini_install/data/gemini_data/hg19.gerp.bw")):
     gerp = BigWig(gerp_path)
@@ -69,6 +129,7 @@ def read_exons(gtf):
 
     for toks in (x.rstrip('\r\n').split("\t") for x in xopen(gtf) if x[0] != "#"):
         if toks[2] not in("UTR", "exon"): continue
+        #if toks[0] != "1": break
         start, end = map(int, toks[3:5])
         assert start <= end, toks
         transcript = toks[8].split('transcript_id "')[1].split('"', 1)[0]
@@ -125,7 +186,7 @@ def cg_content(seq):
     if len(seq) == 0: return 0
     return 2.0 * seq.count('CG') / len(seq)
 
-header = "chrom\tstart\tend\taf\tfunctional\tgene\ttranscript\texon\timpact\tvstart\tvend\tn_bases\tcg_content\tcdna_start\tcdna_end\tcoverage\tgerp\tranges\tposns"
+header = "chrom\tstart\tend\taf\tfunctional\tgene\ttranscript\texon\timpact\tvstart\tvend\tn_bases\tcg_content\tcdna_start\tcdna_end\tranges\tcoverage\tgerp\tposns"
 print "#" + header
 keys = header.split("\t")
 for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
@@ -135,6 +196,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
     fa = fasta[chrom]
 
     gerp_array = read_gerp(chrom)
+    print >>sys.stderr, "gerp",
     coverage_array = read_coverage(chrom, length=len(gerp_array), cov=10)
     print >>sys.stderr, chrom
 
@@ -161,6 +223,9 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 gene=csq['SYMBOL'], transcript=csq['Feature'], exon=csq['EXON'],
                 impact=csq['Consequence'],
                 cdna_start=cdna_start,   cdna_end=cdna_end))
+        if len(rows) > 10000:
+            break
+
 
 
     # now we need to sort and then group by transcript so we know the gaps.
@@ -173,78 +238,29 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
         last = exon_starts[0]
         for i, row in enumerate(trows, start=1):
             # istart and iend determin if we need to span exons.
-            istart = bisect_left(exon_starts, last)
-            iend = bisect_left(exon_starts, row['vstart'] + 1)
-            seqs = []
+
             assert row['vstart'] <= exon_ends[-1], (row, exon_ends)
+            ranges = get_ranges(last, row['vstart'], exon_starts, exon_ends)
 
-            if iend > 0 and exon_starts[iend - 1] == row['vstart']:
-                iend = istart
+            row['gerp'] = ",".join(",".join(floatfmt(g) for g in gerp_array[s:e]) for s, e in ranges)
+            row['coverage'] = ",".join(",".join(floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
+            row['posns'] = list(chain.from_iterable([range(s, e) for s, e in ranges]))
+            row['ranges'] = ["%d-%d" % (s, e) for s, e in ranges]
+            seqs = [fa[s-1:e] for s, e in ranges]
+            # this can happend for UTR variants since we can't really get
+            # anything upstream of them.
+            if row['posns'] == []:  # UTR:
+                p = row['vstart']
+                row['gerp'] = ",".join(floatfmt(g) for g in gerp_array[p:p+1])
+                row['coverage'] = ",".join(floatfmt(g) for g in coverage_array[p:p+1])
+                row['posns'] = [p]
 
-            # easy case is when variants are in in same exon; just grab all the
-            # scores with a single query
-            diff = row['vstart'] - last
-            if diff == 0:
-                # always need at least 1. this happens with multiallelics.
-                diff = 1
-            assert diff > 0, (i, diff, row, last)
-            row['ranges'] = []
-            if istart == iend:
-                # add 1 so that we include the current base.
-                # debug: continue
-                qstart, qend = (row['vstart'] - diff), (row['vstart'] + 1)
-                row['gerp'] = ",".join(floatfmt(g) for g in gerp_array[qstart:qend])
-                row['coverage'] = ",".join(floatfmt(g) for g in coverage_array[qstart:qend])
-                row['posns'] = range(qstart, qend)
-                row['ranges'] = ["%d-%d" % (qstart, qend)]
-
-                seqs.append(fa[qstart-1:qend+1])
-                assert len(seqs[-1]) > 0, row
-
-                # this can happend for UTR variants since we can't really get
-                # anything upstream of them.
-                if row['posns'] == []:  # UTR:
-                    p = row['vstart']
-                    row['gerp'] = ",".join(floatfmt(g) for g in gerp_array[p:p+1])
-                    row['coverage'] = ",".join(floatfmt(g) for g in coverage_array[p:p+1])
-                    row['posns'] = [p]
-
-            else:
-                # loop over exons until we have queried diff bases.
-                L_gerp, L_coverage, L_posns = [], [], []
-                for k, (xstart, xend) in enumerate(zip(exon_starts[max(istart-1, 0):], exon_ends[max(istart-1, 0):])):
-                    assert xstart <= xend
-                    do_break = False
-                    # had to go to start of exon so we take the max but this is
-                    # only required for the 1st time through the loop.
-                    xstart = max(xstart, last)
-                    if xstart >= xend: continue
-
-                    # dont read more than we need
-                    # end is the min of current exon and the amount we need to
-                    # read to make len of diff
-                    xend = min(xend, xstart + diff - len(L_gerp)) + 1
-                    do_break = xend >= row['vstart']
-                    if do_break:
-                        xend = row['vstart']
-
-                    L_gerp.extend(floatfmt(g) for g in gerp_array[xstart:xend])
-                    L_coverage.extend(floatfmt(g) for g in coverage_array[xstart:xend])
-                    L_posns.extend(range(xstart, xend))
-                    row['ranges'].append("%d-%d" % (xstart, xend))
-                    seqs.append(fa[xstart - 1: xend + 1])
-
-                    if do_break or len(L_posns) >= diff: break
-
-                assert len(L_posns) > 0
-
-                row['gerp'] = ",".join(L_gerp)
-                row['coverage'] = ",".join(L_coverage)
-                row['posns'] = L_posns
-
-            # TODO:
-            # when i == len(trows) add an extra column to get to end of
-            # transcript? or extra row?
+            # post-hoc sanity check
+            exon_bases = set(chain.from_iterable(range(s, e) for s, e in zip(exon_starts, exon_ends)))
+            ranges = set(chain.from_iterable(range(int(x[0]), int(x[1])) for x in (z.split("-") for z in row['ranges'])))
+            m = len(ranges - exon_bases)
+            if m > len(row['ranges']):
+                print >>sys.stderr, last, row['vstart'], row['ranges'], len(ranges - exon_bases), zip(exon_starts, exon_ends)
 
             # start or end? if we use end then can have - diff.
             row['ranges'] = ",".join(row['ranges'])
