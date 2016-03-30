@@ -21,6 +21,7 @@ for i, d in enumerate(ts.reader(1)):
         gerps = [float(x) for x in d['gerp'].split(",")]
 
         genes.append((d['chrom'], str(d['start']), str(d['end']), d['gene'],
+            d['transcript'],
             d['exon'], str(len(gerps))))
 
         coverage = map(float, d['coverage'].split(","))
