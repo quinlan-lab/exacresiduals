@@ -104,6 +104,7 @@ def get_cdna_start_end(cdna_start):
     return cdna_start, cdna_end
 
 exac = VCF('/uufs/chpc.utah.edu/common/home/u6000771/Projects/gemini_install/data/gemini_data/ExAC.r0.3.sites.vep.tidy.vcf.gz')
+#exac = VCF('rbp7.vcf.gz')
 
 # CSQ keys
 kcsq = exac["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
@@ -173,7 +174,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
         for i, row in enumerate(trows, start=1):
             # istart and iend determin if we need to span exons.
             istart = bisect_left(exon_starts, last)
-            iend = bisect_left(exon_starts, row['vstart'])
+            iend = bisect_left(exon_starts, row['vstart'] + 1)
             seqs = []
             assert row['vstart'] <= exon_ends[-1], (row, exon_ends)
 
@@ -210,6 +211,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 L_gerp, L_coverage, L_posns = [], [], []
                 for k, (xstart, xend) in enumerate(zip(exon_starts[max(istart-1, 0):], exon_ends[max(istart-1, 0):])):
                     assert xstart <= xend
+                    do_break = False
                     # had to go to start of exon so we take the max but this is
                     # only required for the 1st time through the loop.
                     xstart = max(xstart, last)
@@ -218,14 +220,18 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                     # dont read more than we need
                     # end is the min of current exon and the amount we need to
                     # read to make len of diff
-                    xend = min(xend, xstart + diff - len(L_gerp), row['vstart']) + 1
+                    xend = min(xend, xstart + diff - len(L_gerp)) + 1
+                    do_break = xend >= row['vstart']
+                    if do_break:
+                        xend = row['vstart']
+
                     L_gerp.extend(floatfmt(g) for g in gerp_array[xstart:xend])
                     L_coverage.extend(floatfmt(g) for g in coverage_array[xstart:xend])
                     L_posns.extend(range(xstart, xend))
                     row['ranges'].append("%d-%d" % (xstart, xend))
                     seqs.append(fa[xstart - 1: xend + 1])
 
-                    if len(L_posns) >= diff: break
+                    if do_break or len(L_posns) >= diff: break
 
                 assert len(L_posns) > 0
 
