@@ -178,6 +178,9 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             seqs = []
             assert row['vstart'] <= exon_ends[-1], (row, exon_ends)
 
+            if iend > 0 and exon_starts[iend - 1] == row['vstart']:
+                iend = istart
+
             # easy case is when variants are in in same exon; just grab all the
             # scores with a single query
             diff = row['vstart'] - last
