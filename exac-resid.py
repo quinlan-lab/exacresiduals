@@ -223,9 +223,6 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 gene=csq['SYMBOL'], transcript=csq['Feature'], exon=csq['EXON'],
                 impact=csq['Consequence'],
                 cdna_start=cdna_start,   cdna_end=cdna_end))
-        if len(rows) > 10000:
-            break
-
 
 
     # now we need to sort and then group by transcript so we know the gaps.
