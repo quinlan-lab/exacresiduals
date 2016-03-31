@@ -35,12 +35,11 @@ except:
 
 X = pd.DataFrame(X)
 #X = np.array(cgs)
-results = sm.OLS(ys, X, hasconst=False).fit()
-resid = OLSInfluence(results).get_resid_studentized_external()
 
-pctile = 100.0 * np.sort(resid).searchsorted(resid) / float(len(resid))
+resid_pctile = 100.0 * np.sort(resid).searchsorted(resid) / float(len(resid))
+cov_pctile = 100.0 * np.sort(ys).searchsorted(ys) / float(len(ys))
 
-print "chrom\tstart\tend\tgene\texon\tn\tgerp_cpg_resid\tgerp_cpg_resid_pctile"
+print "chrom\tstart\tend\tgene\texon\tn\tgerp_cpg_resid\tgerp_cpg_resid_pctile\tcov_pctile"
 for i, row in enumerate(genes):
-    print "\t".join(list(row) + ["%.3f" % resid[i], "%.9f" % pctile[i],
+    print "\t".join(list(row) + ["%.3f" % resid[i], "%.9f" % resid_pctile[i], "%.9f" % cov_pctile[i]
                                  ])
