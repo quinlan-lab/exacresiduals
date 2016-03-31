@@ -33,6 +33,9 @@ del X['gerp']
 X = pd.DataFrame(X)
 #X = np.array(cgs)
 
+results = sm.OLS(ys, X, hasconst=False).fit()
+resid = OLSInfluence(results).get_resid_studentized_external()
+
 resid_pctile = 100.0 * np.sort(resid).searchsorted(resid) / float(len(resid))
 cov_pctile = 100.0 * np.sort(ys).searchsorted(ys) / float(len(ys))
 
