@@ -183,7 +183,7 @@ transcript_exon_starts, transcript_exon_ends = read_exons("Homo_sapiens.GRCh37.7
 
 fasta = Fasta('/uufs/chpc.utah.edu/common/home/u6000771/Data/data/hs37d5.fa', read_ahead=10000, as_raw=True)
 def cg_content(seq):
-    if len(seq) == 0: return 0
+    if len(seq) == 0: return 0.0
     return 2.0 * seq.count('CG') / len(seq)
 
 header = "chrom\tstart\tend\taf\tfunctional\tgene\ttranscript\texon\timpact\tvstart\tvend\tn_bases\tcg_content\tcdna_start\tcdna_end\tranges\tcoverage\tgerp\tposns"
@@ -267,6 +267,8 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             row['end'] = str(max(row['posns']))
             row['posns'] = ",".join(map(str, row['posns']))
             row['cg_content'] = floatfmt(np.mean([cg_content(s) for s in seqs]))
+            if row['cg_content'] == 'nan':
+                row['cg_content'] = '0'
 
             out.append(row)
 
