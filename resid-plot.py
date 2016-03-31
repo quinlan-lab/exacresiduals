@@ -29,6 +29,7 @@ for i, d in enumerate(ts.reader(1)):
 
     ys.append(np.log(1.0 + np.sum(coverage)))
 
+del X['gerp']
 X = pd.DataFrame(X)
 #X = np.array(cgs)
 results = sm.OLS(ys, X, hasconst=False).fit()
@@ -36,7 +37,7 @@ resid = OLSInfluence(results).get_resid_studentized_external()
 
 pctile = 100.0 * np.sort(resid).searchsorted(resid) / float(len(resid))
 
-print "chrom\tstart\tend\tgene\texon\tn\tgerp_cpg_resid\tgerp_cpg_resid_pctile"
+print "#chrom\tstart\tend\tgene\texon\tn\tgerp_cpg_resid\tgerp_cpg_resid_pctile"
 for i, row in enumerate(genes):
     print "\t".join(list(row) + ["%.3f" % resid[i], "%.9f" % pctile[i],
                                  ])
