@@ -128,7 +128,7 @@ def read_exons(gtf):
     transcripts = defaultdict(pyinter.IntervalSet)
 
     for toks in (x.rstrip('\r\n').split("\t") for x in xopen(gtf) if x[0] != "#"):
-        if toks[2] not in("UTR", "exon"): continue
+        if toks[2] not in("CDS", "stop_codon") or toks[1] not in("protein_coding"): continue
         #if toks[0] != "1": break
         start, end = map(int, toks[3:5])
         assert start <= end, toks
@@ -173,8 +173,7 @@ kcsq = exac["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
 
 def isfunctional(csq):
     return any(c in ('stop_gained', 'stop_lost', 'start_lost', 'initiator_codon_variant', 'rare_amino_acid_variant',
-                     'missense_variant', '5_prime_UTR_premature_start_codon_gain_variant', 'protein_altering_variant',
-                     'splice_acceptor_variant', 'splice_donor_variant', 'frameshift_variant')
+                     'missense_variant', 'protein_altering_variant', 'frameshift_variant')
                for c in csq['Consequence'].split('&'))
 
 # read ensembl gtf into dict keyed by transcript with list of exons so
@@ -202,7 +201,6 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
 
     for v in viter:
 
-
         if not (v.FILTER is None or v.FILTER == "PASS"):
             continue
         info = v.INFO
@@ -211,7 +209,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
         except KeyError:
             continue
         af = info['AC_Adj'] / float(info['AN_Adj'] or 1)
-        for csq in (c for c in csqs if c['CANONICAL'] == 'YES' and c['Allele'] == v.ALT[0]):
+        for csq in (c for c in csqs if c['CANONICAL'] == 'YES' and c['Allele'] == v.ALT[0] and c['BIOTYPE'] == 'protein_coding'):
             # skipping intronic
             if csq['Feature'] == '' or csq['EXON'] == '' or csq['cDNA_position'] == '': continue
             if not isfunctional(csq): continue
@@ -237,6 +235,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             # istart and iend determin if we need to span exons.
 
             assert row['vstart'] <= exon_ends[-1], (row, exon_ends)
+            print row['vstart'],row['vend']
             ranges = get_ranges(last, row['vstart'], exon_starts, exon_ends)
 
             row['gerp'] = ",".join(",".join(floatfmt(g) for g in gerp_array[s:e]) for s, e in ranges)
