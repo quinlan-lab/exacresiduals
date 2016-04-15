@@ -164,8 +164,7 @@ def get_cdna_start_end(cdna_start):
         cdna_end = cdna_start + len(v.REF)
     return cdna_start, cdna_end
 
-exac = VCF('/uufs/chpc.utah.edu/common/home/u6000771/Projects/gemini_install/data/gemini_data/ExAC.r0.3.sites.vep.tidy.vcf.gz')
-#exac = VCF('rbp7.vcf.gz')
+exac = VCF('/scratch/ucgd/lustre/u1021864/serial/ExAC.r0.3.sites.vep.tidy.vcf.gz')
 
 # CSQ keys
 kcsq = exac["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
