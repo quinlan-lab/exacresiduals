@@ -14,6 +14,7 @@ import numpy as np
 from bw import BigWig
 from pyfaidx import Fasta
 import pyinter
+from ma import match_alleles
 
 from bisect import bisect_left
 
@@ -48,17 +49,16 @@ def get_ranges(last, vstart, exon_starts, exon_ends):
     ... (1560808, 1561033, 1562134, 1562379, 1562587, 1562824, 1563209, 1563559, 1563779, 1564102, 1564691, 1564946, 1565084, 1565985))
     [(1562576, 1562588), (1562675, 1562676)]
     """
-
-    assert last >= exon_starts[0]
+    assert last+1 >= exon_starts[0]
     assert vstart <= exon_ends[-1]
-    assert vstart >= last
+    assert vstart+1 >= last
     assert all(s < e for s, e in zip(exon_starts, exon_ends))
 
     istart = bisect_left(exon_starts, last) - 1
     if istart == -1: istart = 0
     [(0, 6), (10, 11)]
 
-    assert exon_starts[istart] <= last, (exon_starts[istart], last, istart)
+    assert exon_starts[istart] <= last+1, (exon_starts[istart], last, istart)
     if exon_ends[istart] <= last:
         istart += 1
         last = exon_starts[istart]
@@ -200,16 +200,16 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
     print >>sys.stderr, chrom
 
     for v in viter:
-
         if not (v.FILTER is None or v.FILTER == "PASS"):
             continue
         info = v.INFO
+        is_multi = bool(info.get('OLD_MULTIALLELIC'))
         try:
             csqs = [dict(zip(kcsq, c.split("|"))) for c in info['CSQ'].split(",")]
         except KeyError:
             continue
         af = info['AC_Adj'] / float(info['AN_Adj'] or 1)
-        for csq in (c for c in csqs if c['CANONICAL'] == 'YES' and c['Allele'] == v.ALT[0] and c['BIOTYPE'] == 'protein_coding'):
+        for csq in (c for c in csqs if c['CANONICAL'] == 'YES' and c['BIOTYPE'] == 'protein_coding' and match_alleles(v.ALT[0],c['Allele'],v.REF,c['Consequence'],is_multi)):
             # skipping intronic
             if csq['Feature'] == '' or csq['EXON'] == '' or csq['cDNA_position'] == '': continue
             if not isfunctional(csq): continue
@@ -235,7 +235,6 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             # istart and iend determin if we need to span exons.
 
             assert row['vstart'] <= exon_ends[-1], (row, exon_ends)
-            print row['vstart'],row['vend']
             ranges = get_ranges(last, row['vstart'], exon_starts, exon_ends)
 
             row['gerp'] = ",".join(",".join(floatfmt(g) for g in gerp_array[s:e]) for s, e in ranges)
