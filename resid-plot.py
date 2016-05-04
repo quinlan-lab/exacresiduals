@@ -55,7 +55,7 @@ pickle.dump(variables, open("var.pickle", "wb"))
 resid_pctile = 100.0 * np.sort(resid).searchsorted(resid) / float(len(resid))
 cov_pctile = 100.0 * np.sort(ys).searchsorted(ys) / float(len(ys))
 
-print "chrom\tstart\tend\tgene\ttranscript\texon\tn\tgerp_cpg_resid\tgerp_cpg_resid_pctile\tcov_pctile"
+print "chrom\tstart\tend\tgene\ttranscript\texon\tn\tcov_score\tcpg\tgerp_mean\tcov_cpg_resid\tcov_cpg_resid_pctile\tcov_pctile"
 for i, row in enumerate(genes):
-    print "\t".join(list(row) + ["%.3f" % resid[i], "%.9f" % resid_pctile[i], "%.9f" % cov_pctile[i]
+    print "\t".join(list(row) + ["%.3f" % ys[i], "%.3f" % X['CpG'][i], "%.3f" % gerp[i], "%.3f" % resid[i], "%.9f" % resid_pctile[i], "%.9f" % cov_pctile[i]
                                  ])

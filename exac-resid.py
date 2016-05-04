@@ -80,7 +80,7 @@ xopen = lambda f: (gzip.open if f.endswith(".gz") else open)(f)
 def path(p):
     return os.path.expanduser(os.path.expandvars(p))
 
-def read_gerp(chrom, gerp_path=path("~u6000771/Projects/gemini_install/data/gemini_data/hg19.gerp.bw")):
+def read_gerp(chrom, gerp_path=path('/scratch/ucgd/lustre/u1021864/serial/hg19.gerp.bw')):
     gerp = BigWig(gerp_path)
     if not chrom.startswith("chr"):
         chrom = "chr" + chrom
@@ -197,7 +197,6 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
     print >>sys.stderr, "gerp",
     coverage_array = read_coverage(chrom, length=len(gerp_array), cov=10)
     print >>sys.stderr, chrom
-
     for v in viter:
         if not (v.FILTER is None or v.FILTER == "PASS"):
             continue
@@ -220,7 +219,6 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 gene=csq['SYMBOL'], transcript=csq['Feature'], exon=csq['EXON'],
                 impact=csq['Consequence'],
                 cdna_start=cdna_start,   cdna_end=cdna_end))
-
 
     # now we need to sort and then group by transcript so we know the gaps.
     rows.sort(key=operator.itemgetter('transcript', 'vstart', 'vend'))
