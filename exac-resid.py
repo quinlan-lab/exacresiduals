@@ -238,7 +238,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             row['coverage'] = ",".join(",".join(floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
             row['posns'] = list(chain.from_iterable([range(s, e) for s, e in ranges]))
             row['ranges'] = ["%d-%d" % (s, e) for s, e in ranges]
-            seqs = [fa[s-1:e] for s, e in ranges]
+            seqs = [fa[s:e] for s, e in ranges] # removed s-1 to get true CpG calc.
             # this can happend for UTR variants since we can't really get
             # anything upstream of them.
             if row['posns'] == []:  # UTR:
