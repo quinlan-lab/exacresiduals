@@ -21,6 +21,8 @@ X = {"CpG": [], "gerp": []}
 ys, genes = [], []
 for i, d in enumerate(ts.reader(1)):
     try:
+        if d['end']-d['start']+1<=10:
+            continue
         gerps = [float(x) for x in d['gerp'].split(",")]
     except KeyError:
         continue
