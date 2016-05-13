@@ -9,6 +9,7 @@ from statsmodels.stats.outliers_influence import OLSInfluence
 import scipy.stats as ss
 from statsmodels.formula.api import ols
 import pandas as pd
+from scipy.stats.mstats import hmean
 
 
 import csv
@@ -26,7 +27,7 @@ for i, d in enumerate(ts.reader(1)):
 
     coverage = map(float, d['coverage'].split(","))
     X['CpG'].append(float(d['cg_content']))
-    X['gerp'].append(np.mean(gerps))
+    X['gerp'].append(1) #np.mean(gerps))
 
     ys.append(np.sum(coverage))
 
@@ -51,6 +52,8 @@ pickle.dump(variables, open("var.pickle", "wb"))
 
 resid_pctile = 100.0 * np.sort(resid).searchsorted(resid) / float(len(resid))
 cov_pctile = 100.0 * np.sort(ys).searchsorted(ys) / float(len(ys))
+
+assert len(genes) == len(ys) == len(resid)
 
 print "chrom\tstart\tend\tgene\ttranscript\texon\tn\tcov_score\tcpg\tgerp_mean\tcov_cpg_resid\tcov_cpg_resid_pctile\tcov_pctile"
 for i, row in enumerate(genes):
