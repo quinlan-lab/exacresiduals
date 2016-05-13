@@ -8,6 +8,7 @@ import operator
 import itertools as it
 from bisect import bisect_left
 from itertools import chain
+import toolshed as ts
 
 from cyvcf2 import VCF
 import numpy as np
@@ -75,8 +76,6 @@ def get_ranges(last, vstart, exon_starts, exon_ends):
 
     return ranges
 
-xopen = lambda f: (gzip.open if f.endswith(".gz") else open)(f)
-
 def path(p):
     return os.path.expanduser(os.path.expandvars(p))
 
@@ -124,15 +123,24 @@ def read_coverage(chrom, cov=10, length=249250621, path="~u6000771/Data/ExAC-cov
     return cov
 
 
-def read_exons(gtf):
+def read_exons(gtf, coverage_array):
     transcripts = defaultdict(pyinter.IntervalSet)
 
-    for toks in (x.rstrip('\r\n').split("\t") for x in xopen(gtf) if x[0] != "#"):
+    ext = 0
+    for toks in (x.rstrip('\r\n').split("\t") for x in ts.nopen(gtf) if x[0] != "#"):
         if toks[2] not in("CDS", "stop_codon") or toks[1] not in("protein_coding"): continue
         #if toks[0] != "1": break
         start, end = map(int, toks[3:5])
+        # if coverage is < 0.2 mean, we force it to be a new transcript.
+        if coverage_array[start-1:end].mean() < 0.2:
+            tr_ext = "///%d" % ext
+            ext += 1
+        else:
+            tr_ext = ""
+
         assert start <= end, toks
         transcript = toks[8].split('transcript_id "')[1].split('"', 1)[0]
+        transcript += tr_ext
         transcripts[transcript].add(pyinter.closedopen(start-1, end))
 
     # sort by start so we can do binary search.
@@ -177,7 +185,6 @@ def isfunctional(csq):
 
 # read ensembl gtf into dict keyed by transcript with list of exons so
 # we know how far back to go.
-transcript_exon_starts, transcript_exon_ends = read_exons("/scratch/ucgd/lustre/u1021864/serial/Homo_sapiens.GRCh37.75.gtf.gz")
 
 fasta = Fasta('/uufs/chpc.utah.edu/common/home/u6000771/Data/data/hs37d5.fa', read_ahead=10000, as_raw=True)
 def cg_content(seq):
@@ -192,10 +199,14 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
     print >>sys.stderr, "reading chrom",
 
     fa = fasta[chrom]
+    print(len(fa))
+    coverage_array = read_coverage(chrom, length=len(fa), cov=10)
+
+    transcript_exon_starts, transcript_exon_ends = read_exons("|tabix /scratch/ucgd/lustre/u1021864/serial/Homo_sapiens.GRCh37.75.gtf.gz {chrom}"
+                                                              .format(chrom=chrom), coverage_array)
 
     gerp_array = read_gerp(chrom)
-    print >>sys.stderr, "gerp",
-    coverage_array = read_coverage(chrom, length=len(gerp_array), cov=10)
+
     print >>sys.stderr, chrom
     for v in viter:
         if not (v.FILTER is None or v.FILTER == "PASS"):
@@ -207,7 +218,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
         except KeyError:
             continue
         af = info['AC_Adj'] / float(info['AN_Adj'] or 1)
-        for csq in (c for c in csqs if c['CANONICAL'] == 'YES' and c['BIOTYPE'] == 'protein_coding' and match_alleles(v.ALT[0],c['Allele'],v.REF,c['Consequence'],is_multi)):
+        for csq in (c for c in csqs if c['CANONICAL'] == 'YES' and c['BIOTYPE'] == 'protein_coding' and match_alleles(v.ALT[0],c['Allele'],v.REF,c['Consequence'], is_multi)):
             # skipping intronic
             if csq['Feature'] == '' or csq['EXON'] == '' or csq['cDNA_position'] == '': continue
             if not isfunctional(csq): continue
