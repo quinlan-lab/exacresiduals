@@ -19,20 +19,16 @@ X = {"CpG": [], "gerp": []}
 
 ys, genes = [], []
 for i, d in enumerate(ts.reader(1)):
-    try:
-        if int(d['end'])-int(d['start'])+1<=10:
-            continue
-        gerps = [float(x) for x in d['gerp'].split(",")]
-    except KeyError:
+    if int(d['end']) - int(d['start']) < 10:
         continue
+    gerps = [float(x) for x in d['gerp'].split(",")]
     genes.append((d['chrom'], str(d['start']), str(d['end']), d['gene'], d['transcript'], d['exon'], str(len(gerps))))
-    
+
     coverage = map(float, d['coverage'].split(","))
     X['CpG'].append(float(d['cg_content']))
     X['gerp'].append(np.mean(gerps))
 
-    ys.append(np.log(1.0 + np.sum(coverage)))
-    #ys.append(np.sum(coverage))
+    ys.append(np.sum(coverage))
 
 gerp = X['gerp']
 X['intercept'] = np.ones(len(ys))
@@ -45,7 +41,7 @@ resid = OLSInfluence(results).get_resid_studentized_external()
 variables={}
 variables['cpg']=X['CpG']
 variables['cov']=ys
-variables['resid']=resid 
+variables['resid']=resid
 variables['rawresid']=results.resid
 variables['genes']=genes
 variables['gerp']=gerp
