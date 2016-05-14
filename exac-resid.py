@@ -1,3 +1,4 @@
+from __future__ import print_function
 # SEE: https://github.com/quinlan-lab/lab-wiki/blob/master/projects/residuals.md
 import sys
 import os
@@ -18,6 +19,58 @@ import pyinter
 from ma import match_alleles
 
 from bisect import bisect_left
+
+
+def split_ranges(position, ranges, low_coverage):
+    """
+    >>> split_ranges(1033, [(1018, 1034)], [(1022, 1034)])
+    [[(1018, 1022)]]
+
+    >>> split_ranges(1033, [(1018, 1034)], None)
+    [[(1018, 1034)]]
+
+    >>> split_ranges(1033, [(1018, 1034)], [(1022, 1024), (1028, 1034)])
+    [[(1018, 1022)], [(1024, 1028)]]
+
+    >>> split_ranges(57, [(18, 24), (28, 35), (55, 60)], [(28, 35), (55, 57)])
+    [[(18, 24)], [(57, 60)]]
+
+    >>> split_ranges(5, [(12, 18), (22, 28), (32, 39), (42, 48)],
+    ...                 [(12, 18), (22, 26),           (44, 48)])
+    [[(26, 28)], [(32, 39)], [(42, 44)]]
+
+    >>> split_ranges(5, [(11, 18), (22, 28), (32, 39), (42, 48)],
+    ...                 [(12, 18), (22, 26),           (44, 48)])
+    [[(11, 12)], [(26, 28)], [(32, 39)], [(42, 44)]]
+
+    """
+    if low_coverage is None:
+        return [ranges]
+
+    lc = pyinter.IntervalSet(pyinter.closedopen(s, e) for s, e in low_coverage)
+
+    all_ranges = []
+    last_start = -1
+    seen = set()
+    for i, (lcs, lce) in enumerate(low_coverage):
+        sub = [(s, e) for s, e in ranges if s >= last_start and e <= lcs]
+        if sub: all_ranges.append(sub)
+
+        # get the overlaps
+        for s, e in ranges:
+            if s <= lce and e >= lcs:
+                if (s, e) in seen: continue
+                seen.add((s, e))
+                ivs = pyinter.IntervalSet([pyinter.closedopen(s, e)]) - lc
+                for iv in ivs:
+                    all_ranges.append([(iv.lower_value, iv.upper_value)])
+
+        sub = [(s, e) for s, e in ranges if s >= lcs and e <= lce and not (s == lcs and e == lce)]
+
+        last_start = lcs + 1
+        if sub: all_ranges.append(sub)
+
+    return sorted(all_ranges)
 
 def get_ranges(last, vstart, exon_starts, exon_ends):
     """
@@ -52,7 +105,7 @@ def get_ranges(last, vstart, exon_starts, exon_ends):
     """
     assert last+1 >= exon_starts[0]
     assert vstart <= exon_ends[-1]
-    assert vstart+1 >= last
+    assert vstart+1 >= last, (vstart, last, exon_starts)
     assert all(s < e for s, e in zip(exon_starts, exon_ends))
 
     istart = bisect_left(exon_starts, last) - 1
@@ -75,6 +128,12 @@ def get_ranges(last, vstart, exon_starts, exon_ends):
         start = exon_starts[istart]
 
     return ranges
+
+import doctest
+res = doctest.testmod()
+if res.failed != 0:
+    sys.stderr.write("FAILING TESTS")
+    sys.exit(1)
 
 def path(p):
     return os.path.expanduser(os.path.expandvars(p))
@@ -125,34 +184,33 @@ def read_coverage(chrom, cov=10, length=249250621, path="~u6000771/Data/ExAC-cov
 
 def read_exons(gtf, coverage_array):
     transcripts = defaultdict(pyinter.IntervalSet)
+    low_cov = defaultdict(pyinter.IntervalSet)
 
-    ext = 0
     for toks in (x.rstrip('\r\n').split("\t") for x in ts.nopen(gtf) if x[0] != "#"):
         if toks[2] not in("CDS", "stop_codon") or toks[1] not in("protein_coding"): continue
         #if toks[0] != "1": break
         start, end = map(int, toks[3:5])
-        # if coverage is < 0.2 mean, we force it to be a new transcript.
-        if coverage_array[start-1:end].mean() < 0.2:
-            tr_ext = "///%d" % ext
-            ext += 1
-        else:
-            tr_ext = ""
-
-        assert start <= end, toks
         transcript = toks[8].split('transcript_id "')[1].split('"', 1)[0]
-        transcript += tr_ext
+        # if coverage is < 0.2 mean, we force it to be a new transcript.
+        assert start <= end, toks
+
+        if coverage_array[start-1:end].mean() < 0.2:
+            low_cov[transcript].add(pyinter.closedopen(start - 1, end))
         transcripts[transcript].add(pyinter.closedopen(start-1, end))
 
     # sort by start so we can do binary search.
-    # TODO: need to remove overlapping exons so we don't double-count
     transcripts = dict((k, sorted(v)) for k, v in transcripts.iteritems())
     #ends = dict((k, sorted(v)) for k, v in ends.iteritems())
-    starts, ends = {}, {}
+    low_covs, starts, ends = {}, {}, {}
+    low_cov = dict(low_cov)
     for tr, ivset in transcripts.iteritems():
         sends = sorted(list(ivset))
         starts[tr] = [x.lower_value for x in sends]
         ends[tr] = [x.upper_value for x in sends]
-    return starts, ends
+        if tr in low_cov:
+            low_covs[tr] = sorted([(x.lower_value, x.upper_value) for x in low_cov[tr]])
+
+    return starts, ends, low_covs
 
 
 def get_cdna_start_end(cdna_start):
@@ -165,7 +223,7 @@ def get_cdna_start_end(cdna_start):
         try:
             cdna_start, cdna_end = map(int, cdna_start.split("-"))
         except:
-            print v.REF, v.ALT, cdna_start, csq
+            print(v.REF, v.ALT, cdna_start, csq)
             raise
     else:
         cdna_start = int(cdna_start)
@@ -192,22 +250,21 @@ def cg_content(seq):
     return 2.0 * seq.count('CG') / len(seq)
 
 header = "chrom\tstart\tend\taf\tfunctional\tgene\ttranscript\texon\timpact\tvstart\tvend\tn_bases\tcg_content\tcdna_start\tcdna_end\tranges\tcoverage\tgerp\tposns"
-print "#" + header
+print("#" + header)
 keys = header.split("\t")
 for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
     rows = []
-    print >>sys.stderr, "reading chrom",
+    print("reading chrom", file=sys.stderr)
 
     fa = fasta[chrom]
-    print(len(fa))
     coverage_array = read_coverage(chrom, length=len(fa), cov=10)
 
-    transcript_exon_starts, transcript_exon_ends = read_exons("|tabix /scratch/ucgd/lustre/u1021864/serial/Homo_sapiens.GRCh37.75.gtf.gz {chrom}"
+    transcript_exon_starts, transcript_exon_ends, low_cov = read_exons("|tabix /scratch/ucgd/lustre/u1021864/serial/Homo_sapiens.GRCh37.75.gtf.gz {chrom}"
                                                               .format(chrom=chrom), coverage_array)
 
     gerp_array = read_gerp(chrom)
 
-    print >>sys.stderr, chrom
+    print(chrom, file=sys.stderr)
     for v in viter:
         if not (v.FILTER is None or v.FILTER == "PASS"):
             continue
@@ -239,46 +296,54 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
         exon_starts = transcript_exon_starts[transcript]
         exon_ends = transcript_exon_ends[transcript]
         last = exon_starts[0]
+
+        low_coverage = low_cov.get(transcript, None)
+
         for i, row in enumerate(trows, start=1):
             # istart and iend determin if we need to span exons.
+            print(row, file=sys.stderr)
 
             assert row['vstart'] <= exon_ends[-1], (row, exon_ends)
             ranges = get_ranges(last, row['vstart'], exon_starts, exon_ends)
 
-            row['gerp'] = ",".join(",".join(floatfmt(g) for g in gerp_array[s:e]) for s, e in ranges)
-            row['coverage'] = ",".join(",".join(floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
-            row['posns'] = list(chain.from_iterable([range(s, e) for s, e in ranges]))
-            row['ranges'] = ["%d-%d" % (s, e) for s, e in ranges]
-            seqs = [fa[s:e] for s, e in ranges] # removed s-1 to get true CpG calc.
-            # this can happend for UTR variants since we can't really get
-            # anything upstream of them.
-            if row['posns'] == []:  # UTR:
-                p = row['vstart']
-                row['gerp'] = ",".join(floatfmt(g) for g in gerp_array[p:p+1])
-                row['coverage'] = ",".join(floatfmt(g) for g in coverage_array[p:p+1])
-                row['posns'] = [p]
+            for ranges in split_ranges(row['vstart'], ranges, low_coverage):
 
-            # post-hoc sanity check
-            exon_bases = set(chain.from_iterable(range(s, e) for s, e in zip(exon_starts, exon_ends)))
-            ranges = set(chain.from_iterable(range(int(x[0]), int(x[1])) for x in (z.split("-") for z in row['ranges'])))
-            m = len(ranges - exon_bases)
-            if m > len(row['ranges']):
-                print >>sys.stderr, last, row['vstart'], row['ranges'], len(ranges - exon_bases), zip(exon_starts, exon_ends)
+                row['gerp'] = ",".join(",".join(floatfmt(g) for g in gerp_array[s:e]) for s, e in ranges)
+                row['coverage'] = ",".join(",".join(floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
+                row['posns'] = list(chain.from_iterable([range(s, e) for s, e in ranges]))
+                row['ranges'] = ["%d-%d" % (s, e) for s, e in ranges]
+                seqs = [fa[s:e] for s, e in ranges] # removed s-1 to get true CpG calc.
+                # this can happend for UTR variants since we can't really get
+                # anything upstream of them.
+                if row['posns'] == []:  # UTR:
+                    p = row['vstart']
+                    row['gerp'] = ",".join(floatfmt(g) for g in gerp_array[p:p+1])
+                    row['coverage'] = ",".join(floatfmt(g) for g in coverage_array[p:p+1])
+                    row['posns'] = [p]
 
-            # start or end? if we use end then can have - diff.
-            row['ranges'] = ",".join(row['ranges'])
+                # post-hoc sanity check
+                exon_bases = set(chain.from_iterable(range(s, e) for s, e in zip(exon_starts, exon_ends)))
+                ranges = set(chain.from_iterable(range(int(x[0]), int(x[1])) for x in (z.split("-") for z in row['ranges'])))
+                m = len(ranges - exon_bases)
+                if m > len(row['ranges']):
+                    print(last, row['vstart'], row['ranges'], len(ranges -
+                        exon_bases), zip(exon_starts, exon_ends),
+                        file=sys.stderr)
+
+                # start or end? if we use end then can have - diff.
+                row['ranges'] = ",".join(row['ranges'])
+                row['n_bases'] = len(row['posns'])
+                row['start'] = str(min(row['posns']))
+                row['end'] = str(max(row['posns']))
+                row['posns'] = ",".join(map(str, row['posns']))
+                row['cg_content'] = floatfmt(np.mean([cg_content(s) for s in seqs]))
+                if row['cg_content'] == 'nan':
+                    row['cg_content'] = '0'
+
+                out.append(row)
             last = row['vstart']
-            row['n_bases'] = len(row['posns'])
-            row['start'] = str(min(row['posns']))
-            row['end'] = str(max(row['posns']))
-            row['posns'] = ",".join(map(str, row['posns']))
-            row['cg_content'] = floatfmt(np.mean([cg_content(s) for s in seqs]))
-            if row['cg_content'] == 'nan':
-                row['cg_content'] = '0'
-
-            out.append(row)
 
     # still print in sorted order
     out.sort(key=operator.itemgetter('start'))
     for d in out:
-        print "\t".join(map(str, (d[k] for k in keys)))
+        print("\t".join(map(str, (d[k] for k in keys))))
