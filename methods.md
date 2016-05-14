@@ -1,10 +1,8 @@
-
-Regions of constraint are always defined by the bases between
-functional variants.
+Regions of constraint are always defined by the bases between functional variants.
 
 ### First Step
 1. use original, (not decomposed) VCF and take most deleterious allele.
-2. union all exons for all transcripts (not UTRs). (analysis is no-longer transcript-based)
+2. union all exons for all transcripts in a chrom, gene pair (not UTRs). (analysis is no-longer transcript-based)
 3. split at PASS, functional variants
 
 ### Second Pass
@@ -26,4 +24,4 @@ Most of the small pieces of the program logic will be unchanged:
 + split_ranges
 
 and these do the harder work. We'll just re-organize the procedural code
-to avoid adding crazy complexity.
+to avoid spiraling complexity.
