@@ -1,6 +1,8 @@
 import os
 import sys
 from collections import defaultdict
+import matplotlib
+matplotlib.use('Agg')
 
 from matplotlib import pyplot as plt
 import subprocess
@@ -10,8 +12,13 @@ import seaborn as sns
 
 
 region = sys.argv[1]
-
-
+if len(sys.argv) > 2:
+    assert sys.argv[2].isdigit() and sys.argv[3].isdigit()
+    region = "%s:%s-%s" % (sys.argv[1], sys.argv[2], sys.argv[3])
+elif "\t" in region:
+    toks = region.split("\t")
+    print(toks)
+    region = "%s:%s-%s" % tuple(toks[:3])
 
 def read_coverage(region, cov=10, path="~u6000771/Data/ExAC-coverage/"):
     """
@@ -51,6 +58,8 @@ def read_coverage(region, cov=10, path="~u6000771/Data/ExAC-coverage/"):
 def read_exons(gtf):
     transcripts = defaultdict(pyinter.IntervalSet)
 
+    names = []
+    ids = []
     for toks in (x.rstrip('\r\n').split("\t") for x in ts.nopen(gtf) if x[0] != "#"):
         if toks[2] not in("CDS", "stop_codon") or toks[1] not in("protein_coding"): continue
         #if toks[0] != "1": break
@@ -58,6 +67,9 @@ def read_exons(gtf):
         assert start <= end, toks
         transcript = toks[8].split('transcript_id "')[1].split('"', 1)[0]
         transcripts[transcript].add(pyinter.closedopen(start-1, end))
+
+        names.append(toks[8].split('transcript_name "')[1].split('"', 1)[0].rsplit("-", 1)[0])
+        ids.append(toks[8].split('gene_id "')[1].split('"', 1)[0])
 
     # sort by start so we can do binary search.
     # TODO: need to remove overlapping exons so we don't double-count
@@ -72,7 +84,7 @@ def read_exons(gtf):
     for tr in starts:
         fstarts.extend(starts[tr])
         fends.extend(ends[tr])
-    return fstarts, fends
+    return fstarts, fends, set(names), set(ids)
 
 import pyinter
 
@@ -80,11 +92,12 @@ import pyinter
 s, e, cov = read_coverage(region)
 print(len(range(s, e)), len(cov))
 plt.plot(range(s, e + 1), cov)
-starts, ends = read_exons("| tabix /scratch/ucgd/lustre/u1021864/serial/Homo_sapiens.GRCh37.75.gtf.gz {region}".format(region=region))
+starts, ends, names, ids = read_exons("| tabix /scratch/ucgd/lustre/u1021864/serial/Homo_sapiens.GRCh37.75.gtf.gz {region}".format(region=region))
 
 for exs, exe in zip(starts, ends):
     plt.plot([exs, exe], [-0.1, -0.1], 'k-', lw=4)
 
 plt.xlim(s, e)
-plt.title("%s -- sum(cov): %.1f" % (region, cov.sum()))
-plt.show()
+plt.title("%s/%s %s -- sum(cov): %.1f" % ("|".join(names), "|".join(ids), region, cov.sum()))
+plt.savefig('figs/' + region.replace(":", "-") + ".png")
+plt.close()
