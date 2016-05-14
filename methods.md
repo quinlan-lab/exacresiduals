@@ -13,6 +13,7 @@ functional variants.
 
 ### Final Step
 + Add annotations (coverage, gerp, CpG) to each region.
++ Maybe add number of number of variants in non-PASS tranch / impact (func. v. non-func.)
 
 If we implement like this, then we can add whatever we want to the
 things that cause splits and it won't change the logic much because
