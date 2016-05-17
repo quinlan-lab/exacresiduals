@@ -5,8 +5,7 @@ from bisect import bisect_left
 import subprocess
 import toolshed as ts
 
-import pyinter
-from interlap import InterLap
+from interlap import InterLap, Interval as IntervalSet
 import numpy as np
 
 def split_ranges(position, ranges, splitters):
@@ -35,30 +34,7 @@ def split_ranges(position, ranges, splitters):
     if splitters is None:
         return [ranges]
 
-    lc = pyinter.IntervalSet([pyinter.closedopen(s, e) for s, e in splitters])
-
-    all_ranges = []
-    last_start = -1
-    seen = set()
-    for i, (lcs, lce) in enumerate(splitters):
-        sub = [(s, e) for s, e in ranges if s >= last_start and e <= lcs]
-        if sub: all_ranges.append(sub)
-
-        # get the overlaps
-        for s, e in ranges:
-            if s <= lce and e >= lcs:
-                if (s, e) in seen: continue
-                seen.add((s, e))
-                ivs = pyinter.IntervalSet([pyinter.closedopen(s, e)]) - lc
-                for iv in ivs:
-                    all_ranges.append([(iv.lower_value, iv.upper_value)])
-
-        sub = [(s, e) for s, e in ranges if s >= lcs and e <= lce and not (s == lcs and e == lce)]
-
-        last_start = lcs + 1
-        if sub: all_ranges.append(sub)
-
-    return sorted(all_ranges)
+    return [x._vals for x in IntervalSet(ranges).split(splitters)]
 
 def get_ranges(last, vstart, exon_starts, exon_ends):
     """
@@ -162,8 +138,8 @@ def read_coverage(chrom, cov=10, length=249250621, path="data/"):
 
 
 def read_exons(gtf, coverage_array, *args):
-    genes = defaultdict(pyinter.IntervalSet)
-    splitters = defaultdict(pyinter.IntervalSet)
+    genes = defaultdict(IntervalSet)
+    splitters = defaultdict(IntervalSet)
 
 
     interlaps = []
@@ -191,12 +167,12 @@ def read_exons(gtf, coverage_array, *args):
 
         # NOTE: taking the entire exon.
         if coverage_array[start-1:end].mean() < 0.2:
-            splitters[key].add(pyinter.closedopen(start - 1, end))
+            splitters[key].add([(start - 1, end)])
 
         for s, e in split_iv.find((start - 1, end)):
-            splitters[key].add(pyinter.closedopen(s, e))
+            splitters[key].add([(s, e)])
 
-        genes[key].add(pyinter.closedopen(start-1, end))
+        genes[key].add([(start-1, end)])
 
     # sort by start so we can do binary search.
     genes = dict((k, sorted(v)) for k, v in genes.iteritems())
@@ -205,10 +181,10 @@ def read_exons(gtf, coverage_array, *args):
     splitters = dict(splitters)
     for chrom_gene, ivset in genes.iteritems():
         sends = sorted(list(ivset))
-        starts[chrom_gene] = [x.lower_value for x in sends]
-        ends[chrom_gene] = [x.upper_value for x in sends]
+        starts[chrom_gene] = [s[0] for s in sends._vals]
+        ends[chrom_gene] = [s[1] for s in sends._vals]
         if chrom_gene in splitters:
-            splits[chrom_gene] = sorted([(x.lower_value, x.upper_value) for x in splitters[chrom_gene]])
+            splits[chrom_gene] = splitters[chrom_gene]._vals
 
     return starts, ends, splits
 
