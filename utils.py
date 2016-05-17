@@ -6,6 +6,7 @@ import subprocess
 import toolshed as ts
 
 import pyinter
+from interlap import InterLap
 import numpy as np
 
 def split_ranges(position, ranges, splitters):
@@ -160,11 +161,23 @@ def read_coverage(chrom, cov=10, length=249250621, path="data/"):
     return cov
 
 
-def read_exons(gtf, coverage_array):
+def read_exons(gtf, coverage_array, *args):
     genes = defaultdict(pyinter.IntervalSet)
-    low_cov = defaultdict(pyinter.IntervalSet)
-    # preempt any bugs
+    splitters = defaultdict(pyinter.IntervalSet)
+
+
+    interlaps = []
+    split_iv = InterLap()
+    # preempt any bugs by checking that we are getting a particular chrom
     assert gtf[0] == "|", ("expecting a tabix query so we can handle chroms correctly")
+    for a in args:
+        assert a[0] == "|", ("expecting a tabix query so we can handle chroms correctly", a)
+
+        # any file that gets sent in will be used to split regions (just like
+        # low-coverage). For example, we split on self-chains as well.
+        for toks in (x.strip().split("\t") for x in ts.nopen(a)):
+            s, e = int(toks[1]), int(toks[2])
+            split_iv.add((s, e))
 
     for toks in (x.rstrip('\r\n').split("\t") for x in ts.nopen(gtf) if x[0] != "#"):
         if toks[2] not in("CDS", "stop_codon") or toks[1] not in("protein_coding"): continue
@@ -176,23 +189,28 @@ def read_exons(gtf, coverage_array):
         assert start <= end, toks
         key = toks[0], gene
 
+        # NOTE: taking the entire exon.
         if coverage_array[start-1:end].mean() < 0.2:
-            low_cov[key].add(pyinter.closedopen(start - 1, end))
+            splitters[key].add(pyinter.closedopen(start - 1, end))
+
+        for s, e in split_iv.find((start - 1, end)):
+            splitters[key].add(pyinter.closedopen(s, e))
+
         genes[key].add(pyinter.closedopen(start-1, end))
 
     # sort by start so we can do binary search.
     genes = dict((k, sorted(v)) for k, v in genes.iteritems())
     #ends = dict((k, sorted(v)) for k, v in ends.iteritems())
-    low_covs, starts, ends = {}, {}, {}
-    low_cov = dict(low_cov)
+    splits, starts, ends = {}, {}, {}
+    splitters = dict(splitters)
     for chrom_gene, ivset in genes.iteritems():
         sends = sorted(list(ivset))
         starts[chrom_gene] = [x.lower_value for x in sends]
         ends[chrom_gene] = [x.upper_value for x in sends]
-        if chrom_gene in low_cov:
-            low_covs[chrom_gene] = sorted([(x.lower_value, x.upper_value) for x in low_cov[chrom_gene]])
+        if chrom_gene in splitters:
+            splits[chrom_gene] = sorted([(x.lower_value, x.upper_value) for x in splitters[chrom_gene]])
 
-    return starts, ends, low_covs
+    return starts, ends, splits
 
 
 def get_cdna_start_end(cdna_start, v):

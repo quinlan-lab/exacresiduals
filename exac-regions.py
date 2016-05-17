@@ -44,10 +44,11 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
     coverage_array = u.read_coverage(chrom, length=len(fa), cov=10,
             path=COVERAGE_PATH)
 
-    gene_exon_starts, gene_exon_ends, low_cov = u.read_exons("|tabix {gtf} {chrom}"
+    gene_exon_starts, gene_exon_ends, splitters = u.read_exons("|tabix {gtf} {chrom}"
                                                             .format(chrom=chrom,
                                                                 gtf=GTF_PATH),
-                                                            coverage_array)
+                                                            coverage_array,
+                                            "|tabix {bed} {chrom}".format(chrom=chrom, bed=SELF_CHAINS))
 
     print(chrom, file=sys.stderr)
     for v in viter:
@@ -88,7 +89,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
         exon_ends = gene_exon_ends[chrom_gene]
         last = exon_starts[0]
 
-        low_coverage = low_cov.get(chrom_gene, None)
+        splitter = splitters.get(chrom_gene, None)
 
         for i, row in enumerate(trows, start=1):
             # istart and iend determin if we need to span exons.
@@ -96,7 +97,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             assert row['vstart'] <= exon_ends[-1], (row, exon_ends)
             mranges = u.get_ranges(last, row['vstart'], exon_starts, exon_ends)
 
-            for ranges in u.split_ranges(row['vstart'], mranges, low_coverage):
+            for ranges in u.split_ranges(row['vstart'], mranges, splitter):
 
                 row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
                 row['posns'] = list(it.chain.from_iterable([range(s, e) for s, e in ranges]))
