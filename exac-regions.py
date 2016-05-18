@@ -30,7 +30,7 @@ zip = it.izip
 exac = VCF(VCF_PATH)
 kcsq = exac["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
 
-#exac = exac("12:49511565-49535178")
+#exac = exac("2:112538945-112551053")
 
 
 fasta = Fasta(FASTA_PATH, read_ahead=10000, as_raw=True)
@@ -104,8 +104,8 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
                 row['posns'] = list(it.chain.from_iterable([range(s, e) for s, e in ranges]))
                 row['ranges'] = ["%d-%d" % (s, e) for s, e in ranges]
-                seqs = [fa[s:e] for s, e in ranges] # removed s-1 to get true CpG calc.
-                # this can happend for UTR variants since we can't really get
+                seqs = [fa[s:e] for s, e in ranges]
+                # this can happen for UTR variants since we can't really get
                 # anything upstream of them.
                 if row['posns'] == []:  # UTR:
                     p = row['vstart']
@@ -131,7 +131,8 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 if row['cg_content'] == 'nan':
                     row['cg_content'] = '0'
 
-                out.append(row)
+                # we are re-using the dict for each loop so force a copy.
+                out.append(dict(row))
             last = row['vstart']
 
     # still print in sorted order
