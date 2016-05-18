@@ -10,7 +10,7 @@ GTF_PATH = "data/Homo_sapiens.GRCh37.75.gtf.gz"
 COVERAGE_PATH = "data/"
 
 # from UCSC. see data/get-chain.py
-SELF_CHAINS = "data/self-chains.bed.gz"
+SELF_CHAINS = "data/self-chains.gt90.bed.gz"
 
 FASTA_PATH = "/uufs/chpc.utah.edu/common/home/u6000771/Data/data/hs37d5.fa"
 
@@ -29,6 +29,8 @@ zip = it.izip
 
 exac = VCF(VCF_PATH)
 kcsq = exac["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
+
+#exac = exac("12:49511565-49535178")
 
 
 fasta = Fasta(FASTA_PATH, read_ahead=10000, as_raw=True)

@@ -167,24 +167,23 @@ def read_exons(gtf, coverage_array, *args):
 
         # NOTE: taking the entire exon.
         if coverage_array[start-1:end].mean() < 0.2:
-            splitters[key]._vals.append((start - 1, end))
+            splitters[key].add([(start - 1, end)])
 
         for s, e in split_iv.find((start - 1, end)):
-            splitters[key]._vals.append((s, e))
+            splitters[key].add([(s, e)])
 
-        genes[key]._vals.append(((start-1, end)))
+        genes[key].add([(start-1, end)])
 
     # sort by start so we can do binary search.
-    genes = dict((k, sorted(v)) for k, v in genes.iteritems())
+    genes = dict((k, sorted(v._vals)) for k, v in genes.iteritems())
     #ends = dict((k, sorted(v)) for k, v in ends.iteritems())
     splits, starts, ends = {}, {}, {}
     splitters = dict(splitters)
-    for chrom_gene, ivset in genes.iteritems():
-        sends = ireduce(ivset._vals)
+    for chrom_gene, sends in genes.iteritems():
         starts[chrom_gene] = [s[0] for s in sends]
         ends[chrom_gene] = [s[1] for s in sends]
         if chrom_gene in splitters:
-            splits[chrom_gene] = ireduce(splitters[chrom_gene]._vals)
+            splits[chrom_gene] = splitters[chrom_gene]._vals
 
     return starts, ends, splits
 
