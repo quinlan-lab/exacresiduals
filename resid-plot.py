@@ -22,7 +22,8 @@ ys, genes = [], []
 for i, d in enumerate(ts.reader(1)):
     if int(d['end']) - int(d['start']) < 10:
         continue
-    gerps = [float(x) for x in d['gerp'].split(",")]
+    if d['chrom'] == 'X': continue
+    gerps = [0]
     genes.append((d['chrom'], str(d['start']), str(d['end']), d['gene'], d['transcript'], d['exon'], str(len(gerps))))
 
     coverage = map(float, d['coverage'].split(","))
@@ -48,7 +49,6 @@ variables['genes']=genes
 variables['gerp']=gerp
 variables['intercept']=results.params['intercept']
 variables['cpgcoef']=results.params['CpG']
-pickle.dump(variables, open("var.pickle", "wb"))
 
 resid_pctile = 100.0 * np.sort(resid).searchsorted(resid) / float(len(resid))
 cov_pctile = 100.0 * np.sort(ys).searchsorted(ys) / float(len(ys))
