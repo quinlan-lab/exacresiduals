@@ -159,15 +159,36 @@ def read_exons(gtf, coverage_array, *args):
         if toks[2] not in("CDS", "stop_codon") or toks[1] not in("protein_coding"): continue
         #if toks[0] != "1": break
         start, end = map(int, toks[3:5])
-        #transcript = toks[8].split('transcript_id "')[1].split('"', 1)[0]
         gene = toks[8].split('gene_name "')[1].split('"', 1)[0]
-        # if coverage is < 0.2 mean, we force it to be a new transcript.
         assert start <= end, toks
         key = toks[0], gene
 
         # NOTE: taking the entire exon.
-        if coverage_array[start-1:end].mean() < 0.2:
+        #if coverage_array[start-1:end].mean() < 0.2:
+        #    splitters[key].add([(start - 1, end)])
+        cutoff = 0.3
+
+        # find sections of exon under certain coverage.
+        if coverage_array[start-1:end].min() < cutoff:
             splitters[key].add([(start - 1, end)])
+            a = coverage_array[start - 1: end]
+            is_under, locs = False, []
+            if a[0] < cutoff:
+                locs.append([start - 1])
+                is_under = True
+            for pos, v in enumerate(a[1:], start=start):
+                if v < cutoff:
+                    if not is_under:
+                        is_under = True
+                        locs.append([pos])
+                else:
+                    if is_under:
+                        is_under = False
+                        locs[-1].append(pos)
+            if is_under:
+                locs[-1].append(end)
+
+            splitters[key].add(map(tuple, locs))
 
         for s, e in split_iv.find((start - 1, end)):
             splitters[key].add([(s, e)])

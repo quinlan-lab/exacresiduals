@@ -137,5 +137,10 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
 
     # still print in sorted order
     out.sort(key=operator.itemgetter('start'))
+    last = (None, None)
     for d in out:
+        key = d['start'], d['end']
+        if key == last:
+            continue
+        last = key
         print("\t".join(map(str, (d[k] for k in keys))))
