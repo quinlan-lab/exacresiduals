@@ -30,7 +30,8 @@ for i, d in enumerate(ts.reader(1)):
     X['CpG'].append(float(d['cg_content']))
     X['gerp'].append(1) #np.mean(gerps))
 
-    ys.append(np.sum(coverage))
+    #ys.append(np.log(1.0+np.sum(coverage)))
+    ys.append(sum(coverage))
 
 gerp = X['gerp']
 X['intercept'] = np.ones(len(ys))

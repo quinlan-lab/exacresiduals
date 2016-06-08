@@ -21,6 +21,42 @@ elif "\t" in region:
     print(toks)
     region = "%s:%s-%s" % tuple(toks[:3])
 
+def read_synonymous(region, path="data/ExAC.r0.3.sites.vep.vcf.gz"):
+    """
+    read ExAC coverage from a single chrom into a numpy array. If no length is
+    given, just use the one length from chrom 1.
+    path is expected to contain Panel.chr*
+    info field is the column to pull
+    """
+
+    cols = "CHROM  POS     ID      REF     ALT     QUAL    FILTER  INFO".split()
+    coli = cols.index(str(cov)) + 1
+
+
+    chrom, se = region.split(":")
+    s, e = map(int, se.split("-"))
+    length = e - s + 1
+
+    # just extract the position (2) and the requested column
+    p = subprocess.Popen("tabix {path} {region}".format(**locals()),
+            stdout=subprocess.PIPE, stderr=sys.stderr,
+            shell=True,
+            executable=os.environ.get("SHELL"))
+
+    cov = np.zeros(length, dtype=np.float32)
+    j = 0
+    for line in p.stdout:
+        fields = line.strip().split()
+        pos, info = fields[1], fields[-1]
+        cov[int(pos)-s-1] = float(val)
+        j += 1
+        #if j > 100000: break
+    assert j > 0, ("no values found for", chrom, path)
+    p.wait()
+    if p.returncode != 0:
+        raise Exception("bad: %d", p.returncode)
+    return s, e, cov
+
 def read_coverage(region, cov=10, path="~u6000771/Data/ExAC-coverage/"):
     """
     read ExAC coverage from a single chrom into a numpy array. If no length is
