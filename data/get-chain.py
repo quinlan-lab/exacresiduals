@@ -8,7 +8,7 @@ for line in ts.nopen("http://hgdownload.cse.ucsc.edu/goldenPath/hg19/database/ch
 
     # added later
     score = toks[12]
-    if float(score) < 0.9: continue
+    if float(score) < 90: continue
 
 
     a = [toks[2][3:], int(toks[4]), int(toks[5])]
