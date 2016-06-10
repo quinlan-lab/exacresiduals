@@ -1,6 +1,6 @@
 import os
 import sys
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 import matplotlib
 matplotlib.use('Agg')
 
@@ -11,6 +11,9 @@ import toolshed as ts
 import seaborn as sns
 sns.set_style('whitegrid')
 
+from cyvcf2 import VCF
+import utils as u
+import pyinter
 
 region = sys.argv[1]
 if len(sys.argv) > 2:
@@ -18,44 +21,43 @@ if len(sys.argv) > 2:
     region = "%s:%s-%s" % (sys.argv[1], sys.argv[2], sys.argv[3])
 elif "\t" in region:
     toks = region.split("\t")
-    print(toks)
     region = "%s:%s-%s" % tuple(toks[:3])
 
-def read_synonymous(region, path="data/ExAC.r0.3.sites.vep.vcf.gz"):
+def read_variants(region, path="data/ExAC.r0.3.sites.vep.vcf.gz"):
     """
     read ExAC coverage from a single chrom into a numpy array. If no length is
     given, just use the one length from chrom 1.
     path is expected to contain Panel.chr*
     info field is the column to pull
     """
-
-    cols = "CHROM  POS     ID      REF     ALT     QUAL    FILTER  INFO".split()
-    coli = cols.index(str(cov)) + 1
-
-
-    chrom, se = region.split(":")
-    s, e = map(int, se.split("-"))
-    length = e - s + 1
-
+    
     # just extract the position (2) and the requested column
-    p = subprocess.Popen("tabix {path} {region}".format(**locals()),
-            stdout=subprocess.PIPE, stderr=sys.stderr,
-            shell=True,
-            executable=os.environ.get("SHELL"))
-
-    cov = np.zeros(length, dtype=np.float32)
+    vcf = VCF(path)
+    
+    filters=[]
+    a=vcf.raw_header # the following block of code gets the filter list
+    b=a.split("\n")
+    for i in b:
+        if '##FILTER' in i:
+            filters.append(i.split('ID=')[1].split(',')[0])
+ 
+    var = defaultdict(list)
     j = 0
-    for line in p.stdout:
-        fields = line.strip().split()
-        pos, info = fields[1], fields[-1]
-        cov[int(pos)-s-1] = float(val)
+    kcsq = vcf["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
+    for v in vcf(region):
+        csqs = [dict(zip(kcsq, c.split("|"))) for c in v.INFO['CSQ'].split(",")]
+        for csq in (c for c in csqs if c['BIOTYPE'] == 'protein_coding'):
+            if csq['Feature'] == '' or csq['EXON'] == '' or csq['cDNA_position'] == '': continue
+            for c in csq['Consequence'].split('&'):
+                if c in ('synonymous_variant'):
+                    var['syn'].append(v.start)
+                    break
+        if v.FILTER is not None and any(u.isfunctional(csq) for csq in csqs):
+            var[v.FILTER].append(v.start)
         j += 1
         #if j > 100000: break
     assert j > 0, ("no values found for", chrom, path)
-    p.wait()
-    if p.returncode != 0:
-        raise Exception("bad: %d", p.returncode)
-    return s, e, cov
+    return var, filters
 
 def read_coverage(region, cov=10, path="~u6000771/Data/ExAC-coverage/"):
     """
@@ -116,27 +118,90 @@ def read_exons(gtf):
     starts, ends = {}, {}
     for tr, ivset in transcripts.iteritems():
         sends = sorted(list(ivset))
-        starts[tr] = [x.lower_value for x in sends]
-        ends[tr] = [x.upper_value for x in sends]
-    return starts, ends, set(names), set(ids), set(trs)
+        ss, es = [x.lower_value for x in sends], [x.upper_value for x in sends]
+        sends[tr] = (ss,es)
+    return sends, set(names), set(ids), set(trs)
 
-import pyinter
+def read_pfam(path):
+    tracks = defaultdict(pyinter.IntervalSet)
+    pids, trs, ids = [], [], []
+    for toks in (x.rstrip('\r\n').split() for x in ts.nopen(path) if x[0] != "#"):
+        start, end = map(int, toks[1:3])
+        assert start <= end, toks
+        pid = toks[10].split(';',1)[0].strip('"') #pfamA_id
+        tracks[pid].add(pyinter.closedopen(start, end))
+        ids.append(toks[12].split(';',1)[0].strip('"')) #gene_name
+        trs.append(toks[14].split(';',1)[0].strip('"')) #transcript_id
+    starts, ends = {}, {}
+    for pid, ivset in tracks.iteritems():
+        sends = sorted(list(ivset))
+        ss, es = [x.lower_value for x in sends], [x.upper_value for x in sends]
+        sends[tr] = (ss,es)
 
+    return sends
+
+gd=OrderedDict()
+gs,ge={},{}
+keys=[]
 
 s, e, cov = read_coverage(region)
-print(len(range(s, e)), len(cov))
-plt.plot(range(s, e + 1), cov)
+f, axarr = plt.subplots(2, sharex=True)
+axarr[0].plot(range(s, e + 1), cov)
 starts, ends, names, ids, trs = read_exons("| tabix /scratch/ucgd/lustre/u1021864/serial/Homo_sapiens.GRCh37.75.gtf.gz {region}".format(region=region))
 
+gs.update(starts)
+ge.update(ends)
 
-for i, tr in enumerate(starts, start=1):
-    for k, (exs, exe) in enumerate(zip(starts[tr], ends[tr])):
-        plt.plot([exs, exe], [-0.08 * i, -0.08 * i], 'k-', lw=3)
-        if k == 0:
-            plt.text(exe + 50, -0.08 * i + 0.01, tr)
+#for i, tr in enumerate(starts, start=1):
+#    for k, (exs, exe) in enumerate(zip(starts[tr], ends[tr])):
+#        plt.plot([exs, exe], [-0.08 * i, -0.08 * i], 'k-', lw=3)
+#        if k == 0:
+#            plt.text(s - 150, -0.08 * i + 0.01, tr)
 
-plt.title("%s/%s %s -- sum(cov): %.1f" % ("|".join(names), "|".join(ids),
-    region, cov.sum()))
+newstarts, newends = read_pfam("| tabix data/pfam.bed.gz {region}".format(region=region))
+gs.update(newstarts); ge.update(newends)
+
+#for i, key in enumerate(starts, start=i+1):
+#    for k, (exs, exe) in enumerate(zip(starts[key], ends[key])):
+#        plt.plot([exs, exe], [-0.08 * i, -0.08 * i], 'k-', lw=3)
+#        if k == 0:
+#            plt.text(s - 150, -0.08 * i + 0.01, pid)
+
+var,filters = read_variants(region)
+var = sorted(var)
+gd.update(var)
+keys.extend(var.keys())
+keys.extend(var.keys())
+ind = 0
+markers = ['bo','ro','go','yo','mo','co','ko']
+j = 0
+
+plt.title("%s/%s %s -- sum(cov): %.1f; syn density: %.3e" % ("|".join(names), "|".join(ids),
+    region, cov.sum(), len(var['syn'])/float(s-e)))
+
+for ind, key in enumerate(sorted(var)):
+    if key.startswith('VQSR'):
+        marker = 's'
+        j+=1
+        color = (7*j,0,0)
+    elif key == 'syn':
+        marker = 'o'
+        color = 'b'
+    elif key in filters and not key.startswith('VQSR'): 
+        marker = 'o'
+        color = 'k'
+    else:
+        marker = ''
+    if marker != '':
+        axarr[1].plot(var[key], np.zeros(len(var[key])) + (ind+1)/10., marker=marker, color=color, label = key, ls='none')
+    else:
+        for k, (exs, exe) in enumerate(zip(starts[key], ends[key])):
+            axarr[1].plot([exs, exe], [ind+1/10., ind+1/10.], 'k-', lw=3)
+
+axarr[1].set_yticks(np.arange(.1,(ind+2)/10.,.1))
+axarr[1].set_yticklabels(keys)
+plt.tight_layout()
+
 plt.xlim(s, e)
 plt.draw()
 ticks, labels = plt.xticks()
@@ -150,6 +215,5 @@ ax = plt.gca()
 ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
 
 plt.xlim(s, e)
-
-plt.savefig('figs/' + region.replace(":", "-") + ".png")
+plt.savefig('figs/' + region.replace(":", "-") + ".png", bbox_inches='tight')
 plt.close()
