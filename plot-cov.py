@@ -115,12 +115,12 @@ def read_exons(gtf):
     # TODO: need to remove overlapping exons so we don't double-count
     transcripts = dict((k, sorted(v)) for k, v in transcripts.iteritems())
     #ends = dict((k, sorted(v)) for k, v in ends.iteritems())
-    starts, ends = {}, {}
+    ints={}
     for tr, ivset in transcripts.iteritems():
         sends = sorted(list(ivset))
         ss, es = [x.lower_value for x in sends], [x.upper_value for x in sends]
-        sends[tr] = (ss,es)
-    return sends, set(names), set(ids), set(trs)
+        ints[tr] = (ss,es)
+    return ints, set(names), set(ids), set(trs)
 
 def read_pfam(path):
     tracks = defaultdict(pyinter.IntervalSet)
@@ -132,13 +132,13 @@ def read_pfam(path):
         tracks[pid].add(pyinter.closedopen(start, end))
         ids.append(toks[12].split(';',1)[0].strip('"')) #gene_name
         trs.append(toks[14].split(';',1)[0].strip('"')) #transcript_id
-    starts, ends = {}, {}
+    ints={}
     for pid, ivset in tracks.iteritems():
         sends = sorted(list(ivset))
         ss, es = [x.lower_value for x in sends], [x.upper_value for x in sends]
-        sends[tr] = (ss,es)
+        ints[pid] = (ss,es)
 
-    return sends
+    return ints
 
 gd=OrderedDict()
 gs,ge={},{}
@@ -150,28 +150,15 @@ axarr[0].plot(range(s, e + 1), cov)
 sends, names, ids, trs = read_exons("| tabix /scratch/ucgd/lustre/u1021864/serial/Homo_sapiens.GRCh37.75.gtf.gz {region}".format(region=region))
 
 gd.update(sends)
-
-#for i, tr in enumerate(starts, start=1):
-#    for k, (exs, exe) in enumerate(zip(starts[tr], ends[tr])):
-#        plt.plot([exs, exe], [-0.08 * i, -0.08 * i], 'k-', lw=3)
-#        if k == 0:
-#            plt.text(s - 150, -0.08 * i + 0.01, tr)
+keys.extend(sends.keys())
 
 sends = read_pfam("| tabix data/pfam.bed.gz {region}".format(region=region))
 gd.update(sends)
+keys.extend(sends.keys())
 
-#for i, key in enumerate(starts, start=i+1):
-#    for k, (exs, exe) in enumerate(zip(starts[key], ends[key])):
-#        plt.plot([exs, exe], [-0.08 * i, -0.08 * i], 'k-', lw=3)
-#        if k == 0:
-#            plt.text(s - 150, -0.08 * i + 0.01, pid)
-
-var,filters = read_variants(region)
-var = sorted(var)
+var, filters = read_variants(region)
 gd.update(var)
 keys.extend(var.keys())
-keys.extend(var.keys())
-ind = 0
 markers = ['bo','ro','go','yo','mo','co','ko']
 j = 0
 
@@ -182,7 +169,7 @@ for ind, key in enumerate(gd):
     if key.startswith('VQSR'):
         marker = 's'
         j+=1
-        color = (7*j,0,0)
+        color = (.1*j,0,0)
     elif key == 'syn':
         marker = 'o'
         color = 'b'
@@ -192,12 +179,12 @@ for ind, key in enumerate(gd):
     else:
         marker = ''
     if marker != '':
-        axarr[1].plot(gd[key], np.zeros(len(gd[key])) + (ind+1)/10., marker=marker, color=color, label = key, ls='none')
+        axarr[1].plot(gd[key], np.zeros(len(gd[key])) + (ind+1)/1., marker=marker, color=color, label = key, ls='none')
     else:
         for k, (exs, exe) in enumerate(zip(gd[key][0], gd[key][1])):
-            axarr[1].plot([exs, exe], [ind+1/10., ind+1/10.], 'k-', lw=3)
+            axarr[1].plot([exs, exe], [ind+1/1., ind+1/1.], 'k-', lw=3)
 
-axarr[1].set_yticks(np.arange(.1,(ind+2)/10.,.1))
+axarr[1].set_yticks(np.arange(1,(ind+2)/1))
 axarr[1].set_yticklabels(keys)
 plt.tight_layout()
 
