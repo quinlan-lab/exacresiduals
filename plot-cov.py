@@ -147,10 +147,9 @@ keys=[]
 s, e, cov = read_coverage(region)
 f, axarr = plt.subplots(2, sharex=True)
 axarr[0].plot(range(s, e + 1), cov)
-starts, ends, names, ids, trs = read_exons("| tabix /scratch/ucgd/lustre/u1021864/serial/Homo_sapiens.GRCh37.75.gtf.gz {region}".format(region=region))
+sends, names, ids, trs = read_exons("| tabix /scratch/ucgd/lustre/u1021864/serial/Homo_sapiens.GRCh37.75.gtf.gz {region}".format(region=region))
 
-gs.update(starts)
-ge.update(ends)
+gd.update(sends)
 
 #for i, tr in enumerate(starts, start=1):
 #    for k, (exs, exe) in enumerate(zip(starts[tr], ends[tr])):
@@ -158,8 +157,8 @@ ge.update(ends)
 #        if k == 0:
 #            plt.text(s - 150, -0.08 * i + 0.01, tr)
 
-newstarts, newends = read_pfam("| tabix data/pfam.bed.gz {region}".format(region=region))
-gs.update(newstarts); ge.update(newends)
+sends = read_pfam("| tabix data/pfam.bed.gz {region}".format(region=region))
+gd.update(sends)
 
 #for i, key in enumerate(starts, start=i+1):
 #    for k, (exs, exe) in enumerate(zip(starts[key], ends[key])):
@@ -179,7 +178,7 @@ j = 0
 plt.title("%s/%s %s -- sum(cov): %.1f; syn density: %.3e" % ("|".join(names), "|".join(ids),
     region, cov.sum(), len(var['syn'])/float(s-e)))
 
-for ind, key in enumerate(sorted(var)):
+for ind, key in enumerate(gd):
     if key.startswith('VQSR'):
         marker = 's'
         j+=1
@@ -193,9 +192,9 @@ for ind, key in enumerate(sorted(var)):
     else:
         marker = ''
     if marker != '':
-        axarr[1].plot(var[key], np.zeros(len(var[key])) + (ind+1)/10., marker=marker, color=color, label = key, ls='none')
+        axarr[1].plot(gd[key], np.zeros(len(gd[key])) + (ind+1)/10., marker=marker, color=color, label = key, ls='none')
     else:
-        for k, (exs, exe) in enumerate(zip(starts[key], ends[key])):
+        for k, (exs, exe) in enumerate(zip(gd[key][0], gd[key][1])):
             axarr[1].plot([exs, exe], [ind+1/10., ind+1/10.], 'k-', lw=3)
 
 axarr[1].set_yticks(np.arange(.1,(ind+2)/10.,.1))
