@@ -96,7 +96,7 @@ def read_coverage(region, cov=10, path="~u6000771/Data/ExAC-coverage/"):
 
 def read_exons(gtf):
     transcripts = defaultdict(pyinter.IntervalSet)
-
+    totlen = 0
     names = []
     trs, ids = [], []
     for toks in (x.rstrip('\r\n').split("\t") for x in ts.nopen(gtf) if x[0] != "#"):
@@ -116,11 +116,15 @@ def read_exons(gtf):
     transcripts = dict((k, sorted(v)) for k, v in transcripts.iteritems())
     #ends = dict((k, sorted(v)) for k, v in ends.iteritems())
     ints={}
+    lens=pyinter.IntervalSet()
     for tr, ivset in transcripts.iteritems():
         sends = sorted(list(ivset))
+        iset=pyinter.IntervalSet(pyinter.closedopen(x.lower_value,x.upper_value) for x in sends)
+        lens = lens.union(iset)
         ss, es = [x.lower_value for x in sends], [x.upper_value for x in sends]
         ints[tr] = (ss,es)
-    return ints, set(names), set(ids), set(trs)
+    totlen = sum(x.upper_value-x.lower_value for x in lens)
+    return ints, set(names), set(ids), set(trs), totlen
 
 def read_pfam(path):
     tracks = defaultdict(pyinter.IntervalSet)
@@ -140,6 +144,22 @@ def read_pfam(path):
 
     return ints
 
+def read_repeats(path,keyname):
+    tracks = defaultdict(pyinter.IntervalSet)
+    for toks in (x.rstrip('\r\n').split() for x in ts.nopen(path) if x[0] != "#"):
+        start, end = map(int, toks[1:3])
+        assert start <= end, toks
+        tracks[keyname].add(pyinter.closedopen(start, end))
+    ints={}
+    for pid, ivset in tracks.iteritems():
+        sends = sorted(list(ivset))
+        ss, es = [x.lower_value for x in sends], [x.upper_value for x in sends]
+        ints[pid] = (ss,es)
+
+    return ints
+
+#sort -k1,1 -k2,2n $DATA/hgsegmental.bed | uniq | bedtools merge | bgzip -c > data/segmental.bed.gz
+
 gd=OrderedDict()
 gs,ge={},{}
 keys=[]
@@ -147,7 +167,9 @@ keys=[]
 s, e, cov = read_coverage(region)
 f, axarr = plt.subplots(2, sharex=True)
 axarr[0].plot(range(s, e + 1), cov)
-sends, names, ids, trs = read_exons("| tabix /scratch/ucgd/lustre/u1021864/serial/Homo_sapiens.GRCh37.75.gtf.gz {region}".format(region=region))
+ymin,ymax=axarr[1].get_ylim()[0]-.05,axarr[0].get_ylim()[1]+.05
+axarr[0].set_ylim(ymin,ymax)
+sends, names, ids, trs, totlen = read_exons("| tabix /scratch/ucgd/lustre/u1021864/serial/Homo_sapiens.GRCh37.75.gtf.gz {region}".format(region=region))
 
 gd.update(sends)
 keys.extend(sends.keys())
@@ -156,39 +178,53 @@ sends = read_pfam("| tabix data/pfam.bed.gz {region}".format(region=region))
 gd.update(sends)
 keys.extend(sends.keys())
 
+sends = read_repeats("| tabix data/self-chains.gt90.bed.gz {region}".format(region=region),'selfchain')
+gd.update(sends)
+keys.extend(sends.keys())
+
+sends = read_repeats("| tabix data/segmental.bed.gz {region}".format(region=region), 'segdup')
+gd.update(sends)
+keys.extend(sends.keys())
+
 var, filters = read_variants(region)
-gd.update(var)
-keys.extend(var.keys())
+var2 = OrderedDict(sorted(var.items(), key=lambda t: t[0]))
+vqsr=float(len([i for i in var.keys() if i.startswith('VQSR')]))
+gd.update(var2)
+keys.extend(var2.keys())
 markers = ['bo','ro','go','yo','mo','co','ko']
 j = 0
 
-plt.title("%s/%s %s -- sum(cov): %.1f; syn density: %.3e" % ("|".join(names), "|".join(ids),
-    region, cov.sum(), len(var['syn'])/float(s-e)))
+plt.title("%s/%s %s -- sum(cov): %.1f; syn density: 1/%i" % ("|".join(names), "|".join(ids),
+    region, cov.sum(), int(1/(len(var['syn'])/float(totlen)))))
 
 for ind, key in enumerate(gd):
     if key.startswith('VQSR'):
         marker = 's'
         j+=1
-        color = (.1*j,0,0)
+        color = (0,1/vqsr*j,0)
     elif key == 'syn':
         marker = 'o'
-        color = 'b'
+        color = 'c'
     elif key in filters and not key.startswith('VQSR'): 
         marker = 'o'
         color = 'k'
     else:
         marker = ''
+        color = 'k'
+        if key.startswith('ENST'):
+            color = 'b'
     if marker != '':
         axarr[1].plot(gd[key], np.zeros(len(gd[key])) + (ind+1)/1., marker=marker, color=color, label = key, ls='none')
     else:
         for k, (exs, exe) in enumerate(zip(gd[key][0], gd[key][1])):
-            axarr[1].plot([exs, exe], [ind+1/1., ind+1/1.], 'k-', lw=3)
+            axarr[1].plot([exs, exe], [ind+1/1., ind+1/1.], ls='-', color=color, lw=3)
 
 axarr[1].set_yticks(np.arange(1,(ind+2)/1))
 axarr[1].set_yticklabels(keys)
+ymin,ymax=axarr[1].get_ylim()[0]-.35,axarr[1].get_ylim()[1]+.35
+axarr[1].set_ylim(ymin,ymax)
 plt.tight_layout()
 
-plt.xlim(s, e)
 plt.draw()
 ticks, labels = plt.xticks()
 if len(ticks) > 4:
