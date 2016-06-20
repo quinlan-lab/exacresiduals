@@ -9,8 +9,12 @@ GTF_PATH = "data/Homo_sapiens.GRCh37.75.gtf.gz"
 # ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/coverage
 COVERAGE_PATH = "data/"
 
-# from UCSC. see data/get-chain.py
+# from UCSC. see data/get-chain.py, pipe output to sort -k1,1 -k2,2n | uniq | bgzip -c > data/self-chains.gt90.bed.gz
 SELF_CHAINS = "data/self-chains.gt90.bed.gz"
+
+# from UCSC.  data/segmental.bed.gz
+
+SEGDUPS = "data/segmental.bed.gz"
 
 FASTA_PATH = "/uufs/chpc.utah.edu/common/home/u6000771/Data/data/hs37d5.fa"
 
@@ -50,7 +54,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                                                             .format(chrom=chrom,
                                                                 gtf=GTF_PATH),
                                                             coverage_array,
-                                            "|tabix {bed} {chrom}".format(chrom=chrom, bed=SELF_CHAINS))
+                                            "|tabix {bed} {chrom}".format(chrom=chrom, bed=SELF_CHAINS),"|tabix {bed} {chrom}".format(chrom=chrom, bed=SEGDUPS))
 
     print(chrom, file=sys.stderr)
     for v in viter:
