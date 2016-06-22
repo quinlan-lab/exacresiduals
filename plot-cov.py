@@ -66,8 +66,6 @@ def read_gerp(region, path='/scratch/ucgd/lustre/u1021864/serial/hg19.gerp.bw'):
     s, e = map(int, se.split("-"))
     if not chrom.startswith("chr"):
         chrom = "chr" + chrom
-    d = dict(gerp.chroms)
-    l = d[chrom]
 
     return np.frombuffer(gerp.values(chrom, int(s)-1, int(e)), dtype='f')
 
@@ -207,6 +205,11 @@ keys.extend(sends.keys())
 
 var, filters = read_variants(region)
 var2 = OrderedDict(sorted(var.items(), key=lambda t: t[0]))
+
+"""
+calculating VQSR Tranche densities
+"""
+
 vqsr={}
 for i in var2:
     if i.startswith('VQSR'):
@@ -226,6 +229,7 @@ strcat="; ".join(['%s density: 1/%s' for i in vqsr.keys()]) % tuple(densities)
 strcat="%s/%s %s -- syn density: 1/%i\n" % ("|".join(names), "|".join(ids), region, int(1/(len(var['syn'])/float(totlen)))) + strcat
 axarr[2].set_title(strcat.replace('VQSRTranche',''))
 plt.subplots_adjust(hspace=0.5)
+#bbox = f.get_tightbbox(f.canvas.get_renderer())
 
 for ind, key in enumerate(gd):
     if key.startswith('VQSR'):
@@ -252,7 +256,7 @@ for ind, key in enumerate(gd):
 axarr[2].set_yticks(np.arange(1,(ind+2)/1))
 fp=matplotlib.font_manager.FontProperties(family='sans-serif', style='normal', variant='normal', weight='normal', stretch='normal', size='xx-small')
 axarr[2].set_yticklabels(keys, fontproperties=fp)
-ymin,ymax=axarr[2].get_ylim()[0]-.05,axarr[2].get_ylim()[1]+.05
+ymin,ymax=axarr[2].get_ylim()[0]-.25,axarr[2].get_ylim()[1]+.25
 axarr[2].set_ylim(ymin,ymax)
 
 plt.draw()
@@ -267,5 +271,5 @@ ax = plt.gca()
 ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
 
 plt.xlim(s, e)
-plt.savefig('figs/' + region.replace(":", "-") + ".png", bbox_inches='tight')
+plt.savefig('figs/' + region.replace(":", "-") + ".pdf", format='pdf', bbox_inches='tight')
 plt.close()
