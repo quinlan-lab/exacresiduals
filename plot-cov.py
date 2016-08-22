@@ -60,14 +60,18 @@ def read_variants(region, path="data/ExAC.r0.3.sites.vep.vcf.gz"):
     assert j > 0, ("no values found for", chrom, path)
     return var, filters
 
-def read_gerp(region, path='/scratch/ucgd/lustre/u1021864/serial/hg19.gerp.bw'):
+def read_gerp(region, sends, path='/scratch/ucgd/lustre/u1021864/serial/hg19.gerp.bw'):
     gerp = BigWig(path)
+    exongerp=[]
     chrom, se = region.split(":")
     s, e = map(int, se.split("-"))
     if not chrom.startswith("chr"):
         chrom = "chr" + chrom
+    for key in sends:
+        for (exs, exe) in zip(sends[key][0], sends[key][1]):
+             exongerp.extend(np.frombuffer(gerp.values(chrom, int(exs)-1, int(exe)), dtype='f'))
 
-    return np.frombuffer(gerp.values(chrom, int(s)-1, int(e)), dtype='f')
+    return np.frombuffer(gerp.values(chrom, int(s)-1, int(e)), dtype='f'), exongerp
 
 def read_coverage(region, cov=10, path="~u6000771/Data/ExAC-coverage/"):
     """
@@ -175,21 +179,19 @@ gs,ge={},{}
 keys=[]
 f, axarr = plt.subplots(3, sharex=True)
 
+sends, names, ids, trs, totlen = read_exons("| tabix /scratch/ucgd/lustre/u1021864/serial/Homo_sapiens.GRCh37.75.gtf.gz {region}".format(region=region))
+gd.update(sends)
+keys.extend(sends.keys())
+
 s, e, cov = read_coverage(region)
 axarr[0].plot(range(s, e + 1), cov)
 ymin,ymax=axarr[0].get_ylim()[0]-.05,axarr[0].get_ylim()[1]+.05
 axarr[0].set_ylim(ymin,ymax)
 
-gerp = read_gerp(region)
+gerp, exongerp = read_gerp(region, sends)
 axarr[1].plot(range(s, e + 1), gerp)
 ymin,ymax=-12.36,6.18 
-#ymin,ymax=axarr[1].get_ylim()[0]-.05,axarr[1].get_ylim()[1]+.05
-axarr[1].set_ylim(ymin,ymax)
-
-sends, names, ids, trs, totlen = read_exons("| tabix /scratch/ucgd/lustre/u1021864/serial/Homo_sapiens.GRCh37.75.gtf.gz {region}".format(region=region))
-
-gd.update(sends)
-keys.extend(sends.keys())
+#ymin,ymax=axarr[1].get_ylim()[0]-.05,axarr[1].get_ylim()[1]+.05axarr[1].set_ylim(ymin,ymax)
 
 sends = read_pfam("| tabix data/pfam.bed.gz {region}".format(region=region))
 gd.update(sends)
@@ -220,8 +222,8 @@ keys.extend(var2.keys())
 markers = ['bo','ro','go','yo','mo','co','ko']
 j = 0
 
-axarr[0].set_title("coverage plot -- sum(cov): %.1f" % (cov.sum()))
-axarr[1].set_title("gerp plot -- mean(gerp): %.1f" % (np.mean(gerp)))
+axarr[0].set_title("coverage plot -- sum(exonic cov): %.1f" % (cov.sum()))
+axarr[1].set_title("gerp plot -- mean(exonic gerp): %.1f" % (np.mean(exongerp)))
 densities=[]
 for i, k in vqsr.items():
     densities.append(i); densities.append(k)
