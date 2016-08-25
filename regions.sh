@@ -14,7 +14,8 @@ mkdir -p results/$date/
 #python resid-plot.py results/$date/regs.bed.gz > results/$date/resids.txt
 ## getting exonic-only residuals and getting top residuals by percentile and middle residual regions by exonic BP totals and closeness to 0 raw resid values ##
 cat <(head -1 results/$date/resids.txt) <(sed '1d' results/$date/resids.txt | bash dups.sh) > results/$date/exonicresiduals.txt
-sed '1d' results/$date/exonicresiduals.txt | awk '$12 >= 99' > ../regions/topresid.txt
+python weightpercentile.py results/$date/exonicresiduals.txt > results/weightedresiduals.txt
+sed '1d' results/weightedresiduals.txt | awk '$14 >= 99' > ../regions/topresid.txt
 python middle.py -b > ../regions/midresid.txt # -b to run by total basepair matching at the ~0 residual score line (default); -g to match by number of genes for gene comparison
 
 ## old code for bottom residuals and genewide stuff, may need some editing ##
