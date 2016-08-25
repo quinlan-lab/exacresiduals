@@ -8,14 +8,15 @@ for line in f:
     totlen+=int(fields[2])-int(fields[1])
 f.seek(0)
 line = f.readline().strip() + "\t" + "weighted_pct"
-pct=100.0
+pct=100.0; regionlength=0
 print line 
 for line in f:
     fields = line.strip().split("\t")
-    regionlength = int(fields[2])-int(fields[1])
+    regionlength += int(fields[2])-int(fields[1])
     try:
         if fields[11]!=opct:
-            pct=pct-regionlength/totlen
+            pct-=regionlength/totlen*100
+            regionlength=0
     except NameError:
         opct = fields[11]
     opct = fields[11]
