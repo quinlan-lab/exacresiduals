@@ -24,7 +24,7 @@ for i, d in enumerate(ts.reader(1)):
 
     pairs = [x.split("-") for x in d['ranges'].strip().split(",")]
     try:
-        if sum(e - s for s, e in (map(int, p) for p in pairs)) < 10:
+        if sum(e - s for s, e in (map(int, p) for p in pairs)) <= 10: # = is because the ranges are in VCF space, not BED space
             continue
     except:
         print >>sys.stderr, d, pairs
@@ -68,5 +68,5 @@ for i, row in enumerate(genes):
     ranges = [x.split("-") for x in row[-1].split(",")]
     row=list(row)
     for s, e in ranges:
-        row[1], row[2] = s, e
+        row[1], row[2] = s, str(int(e)-1) # -1 because ranges are in VCF space, not BED space
         print "\t".join(list(row) + vals)
