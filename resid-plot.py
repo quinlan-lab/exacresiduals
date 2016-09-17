@@ -55,13 +55,12 @@ resid = OLSInfluence(results).get_resid_studentized_external()
 #pickle.dump(variables, open("var.pickle", "wb"))
 
 resid_pctile = 100.0 * np.sort(resid).searchsorted(resid) / float(len(resid))
-cov_pctile = 100.0 * np.sort(ys).searchsorted(ys) / float(len(ys))
 
 assert len(genes) == len(ys) == len(resid)
 
-print "chrom\tstart\tend\tgene\ttranscript\texon\tranges\tcov_score\tcpg\tcov_cpg_resid\tcov_cpg_resid_pctile\tcov_pctile"
+print "chrom\tstart\tend\tgene\ttranscript\texon\tranges\tcov_score\tcpg\tcov_cpg_resid\tcov_cpg_resid_pctile"
 for i, row in enumerate(genes):
-    vals = ["%.3f" % ys[i], "%.3f" % X['CpG'][i], "%.3f" % resid[i], "%.9f" % resid_pctile[i], "%.9f" % cov_pctile[i]]
+    vals = ["%.3f" % ys[i], "%.3f" % X['CpG'][i], "%.3f" % resid[i], "%.9f" % resid_pctile[i]]
     if not "," in row[-1]:
         print "\t".join(list(row) + vals)
         continue
