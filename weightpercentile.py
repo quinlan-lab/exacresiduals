@@ -1,24 +1,22 @@
 import sys
+import toolshed as ts
 
 totlen=0.0
+for d in ts.reader(sys.argv[1]):
+    totlen+=int(d['end'])-int(d['start']) 
 f=open(sys.argv[1], "r")
-f.readline()
-for line in f:
-    fields = line.strip().split("\t")
-    totlen+=int(fields[2])-int(fields[1])
-f.seek(0)
-line = f.readline().strip() + "\t" + "weighted_pct"
+line = ts.header(sys.argv[1])
+line = "\t".join(line) + "\t" + "weighted_pct"
 pct=100.0; regionlength=0
-print line 
-for line in f:
-    fields = line.strip().split("\t")
-    regionlength += int(fields[2])-int(fields[1]) # a region can be split across multiple exons
+print line
+for d in ts.reader(sys.argv[1], header='ordered'):
+    regionlength += int(d['end'])-int(d['start'])
     try:
-        if fields[11]!=opct: # opct is original percentile, if it changes, we know the region is different and the region has changed and pct needs to be adjusted
-            pct-=regionlength/totlen*100 # maybe the calculation should be from the bottom up?  previous calculation was.
+        if d['cov_cpg_resid_pctile']!=opct:
+            pct-=regionlength/totlen*100
             regionlength=0
     except NameError:
-        opct = fields[11]
-    opct = fields[11]
-    line = line.strip() + "\t" + str(pct)
+        opct=d['cov_cpg_resid_pctile']
+    opct=d['cov_cpg_resid_pctile']
+    line = "\t".join([i for i in d.values()]) + "\t" + str(pct)
     print line
