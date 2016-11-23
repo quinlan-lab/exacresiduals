@@ -7,14 +7,14 @@
 set -exo pipefail -o nounset
 
 ## folder made by date, in case we make major changes to exac-regions.py or resid-plot.py ##
-date=2016_06_16
+date=2016_11_17
 mkdir -p results/$date/
 ## generates regions and residuals files ##
 #python exac-regions.py | bgzip -c > results/$date/regs.bed.gz
 #python resid-plot.py results/$date/regs.bed.gz > results/$date/resids.txt
 ## getting exonic-only residuals and getting top residuals by percentile and middle residual regions by exonic BP totals and closeness to 0 raw resid values ##
 cat <(head -1 results/$date/resids.txt) <(sed '1d' results/$date/resids.txt | bash dups.sh) > results/$date/exonicresiduals.txt
-python weightpercentile.py results/$date/exonicresiduals.txt > results/weightedresiduals.txt
+python weightpercentile.py results/$date/exonicresiduals.txt > results/$date/weightedresiduals.txt
 sed '1d' results/weightedresiduals.txt | awk '$14 >= 99' > ../regions/topresid.txt
 python middle.py -b > ../regions/midresid.txt # -b to run by total basepair matching at the ~0 residual score line (default); -g to match by number of genes for gene comparison
 

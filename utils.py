@@ -8,7 +8,7 @@ import toolshed as ts
 from interlap import InterLap, Interval as IntervalSet, reduce as ireduce
 import numpy as np
 
-def split_ranges(position, ranges, splitters):
+def split_ranges(position, ranges, splitters): # if range is in splitters, it is removed from potential constraint regions
     """
     >>> split_ranges(1033, [(1018, 1034)], [(1022, 1034)])
     [[(1018, 1022)]]
@@ -137,7 +137,7 @@ def read_coverage(chrom, cov=10, length=249250621, path="data/"):
     return cov
 
 
-def read_exons(gtf, coverage_array, *args):
+def read_exons(gtf, chrom, coverage_array, *args):
     genes = defaultdict(IntervalSet)
     splitters = defaultdict(IntervalSet)
 
@@ -146,14 +146,22 @@ def read_exons(gtf, coverage_array, *args):
     split_iv = InterLap()
     # preempt any bugs by checking that we are getting a particular chrom
     assert gtf[0] == "|", ("expecting a tabix query so we can handle chroms correctly")
+    f1 = open("selfchainremoved.txt","a")
+    f2 = open("segdupsremoved.txt","a")
+    f3 = open("coveragecut.txt","a")
     for a in args:
         assert a[0] == "|", ("expecting a tabix query so we can handle chroms correctly", a)
-
+    
         # any file that gets sent in will be used to split regions (just like
         # low-coverage). For example, we split on self-chains as well.
-        for toks in (x.strip().split("\t") for x in ts.nopen(a)):
+        for toks in (x.strip().split("\t") for x in ts.nopen(a)): # adds self chains and segdups to splitters list, so that exons can be split, and they are removed from CCRs
             s, e = int(toks[1]), int(toks[2])
             split_iv.add((s, e))
+            if len(toks) > 3:
+                f1.write("\t".join(toks)+"\n")
+            else:
+                f2.write("\t".join(toks)+"\n")
+                
 
     for toks in (x.rstrip('\r\n').split("\t") for x in ts.nopen(gtf) if x[0] != "#"):
         if toks[2] not in("CDS", "stop_codon") or toks[1] not in("protein_coding"): continue
@@ -163,38 +171,36 @@ def read_exons(gtf, coverage_array, *args):
         assert start <= end, toks
         key = toks[0], gene
 
-        # NOTE: taking the entire exon.
-        #if coverage_array[start-1:end].mean() < 0.2:
-        #    splitters[key].add([(start - 1, end)])
         cutoff = 0.3
 
         # find sections of exon under certain coverage.
-        if coverage_array[start-1:end].min() < cutoff:
-            splitters[key].add([(start - 1, end)])
+        if coverage_array[start-1:end].min() < cutoff: # doesn't bother to run these operations if there is not one bp below the cutoff
+            #splitters[key].add([(start - 1, end)]) #this takes out the whole exon for one section of poor coverage
             a = coverage_array[start - 1: end]
-            is_under, locs = False, []
+            #print str(start-1),end,a
+            is_under, locs = False, [] # generates "locs" for each exon"
             if a[0] < cutoff:
                 locs.append([start - 1])
-                is_under = True
-            for pos, v in enumerate(a[1:], start=start):
+                is_under = True # so you can initialize is_under
+            for pos, v in enumerate(a[1:], start=start): #enumerates positions in the coverage array starting at the beginning of the exon
                 if v < cutoff:
                     if not is_under:
                         is_under = True
-                        locs.append([pos])
+                        locs.append([pos]) #start
                 else:
                     if is_under:
                         is_under = False
-                        locs[-1].append(pos)
+                        locs[-1].append(pos) #end
             if is_under:
-                locs[-1].append(end)
-
+                locs[-1].append(end) # in this case would end splitter at the end of the exon
             splitters[key].add(map(tuple, locs))
+            for i in locs:
+                f3.write(chrom+"\t"+"\t".join(map(str,i))+"\n")
 
         for s, e in split_iv.find((start - 1, end)):
             splitters[key].add([(s, e)])
 
         genes[key].add([(start-1, end)])
-
     # sort by start so we can do binary search.
     genes = dict((k, sorted(v._vals)) for k, v in genes.iteritems())
     #ends = dict((k, sorted(v)) for k, v in ends.iteritems())

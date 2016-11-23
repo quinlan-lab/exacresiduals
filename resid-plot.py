@@ -20,6 +20,7 @@ X = {"CpG": []}
 
 ys, genes = [], []
 for i, d in enumerate(ts.reader(1)):
+    if d['chrom'] == 'X' or d['chrom'] == 'Y': continue
     if int(d['end']) - int(d['start']) < 10: continue
 
     pairs = [x.split("-") for x in d['ranges'].strip().split(",")]
@@ -30,7 +31,6 @@ for i, d in enumerate(ts.reader(1)):
         print >>sys.stderr, d, pairs
         raise
 
-    if d['chrom'] == 'X': continue
     genes.append((d['chrom'], str(d['start']), str(d['end']), d['gene'], d['transcript'], d['exon'], d['ranges']))
 
     coverage = map(float, d['coverage'].split(","))
@@ -68,5 +68,5 @@ for i, row in enumerate(genes):
     ranges = [x.split("-") for x in row[-1].split(",")]
     row=list(row)
     for s, e in ranges:
-        row[1], row[2] = s, str(int(e)-1) # -1 because ranges are in VCF space, not BED space
+        row[1], row[2] = str(int(s)-1), e # -1 because ranges are in VCF space, not BED space
         print "\t".join(list(row) + vals)

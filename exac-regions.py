@@ -1,10 +1,10 @@
 from __future__ import print_function
 
 # ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/ExAC.r0.3.sites.vep.vcf.gz
-VCF_PATH = "data/ExAC.r0.3.sites.vep.vcf.gz"
+VCF_PATH = "data/ExAC.r0.3.sites.vep.vcf.gz" #"toyexac.vcf.gz" #"data/ExAC.r0.3.sites.vep.vcf.gz"
 
 # ftp://ftp.ensembl.org/pub/release-75/gtf/homo_sapiens/Homo_sapiens.GRCh37.75.gtf.gz
-GTF_PATH = "data/Homo_sapiens.GRCh37.75.gtf.gz"
+GTF_PATH = "data/Homo_sapiens.GRCh37.75.gtf.gz" #"toyexons.gtf.gz" #"data/Homo_sapiens.GRCh37.75.gtf.gz"
 
 # ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/coverage
 COVERAGE_PATH = "data/"
@@ -53,6 +53,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
     gene_exon_starts, gene_exon_ends, splitters = u.read_exons("|tabix {gtf} {chrom}"
                                                             .format(chrom=chrom,
                                                                 gtf=GTF_PATH),
+                                                            chrom,
                                                             coverage_array,
                                             "|tabix {bed} {chrom}".format(chrom=chrom, bed=SELF_CHAINS),"|tabix {bed} {chrom}".format(chrom=chrom, bed=SEGDUPS))
 
