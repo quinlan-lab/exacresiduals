@@ -68,5 +68,5 @@ for i, row in enumerate(genes):
     ranges = [x.split("-") for x in row[-1].split(",")]
     row=list(row)
     for s, e in ranges:
-        row[1], row[2] = str(int(s)-1), e # -1 because ranges are in VCF space, not BED space
+        row[1], row[2] = s, e
         print "\t".join(list(row) + vals)
