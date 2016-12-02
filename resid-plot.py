@@ -21,15 +21,15 @@ X = {"CpG": []}
 ys, genes = [], []
 for i, d in enumerate(ts.reader(1)):
     if d['chrom'] == 'X' or d['chrom'] == 'Y': continue
-    if int(d['end']) - int(d['start']) < 10: continue
+    #if int(d['end']) - int(d['start']) < 10: continue
 
     pairs = [x.split("-") for x in d['ranges'].strip().split(",")]
-    try:
-        if sum(e - s for s, e in (map(int, p) for p in pairs)) <= 10: # = is because the ranges are in VCF space, not BED space
-            continue
-    except:
-        print >>sys.stderr, d, pairs
-        raise
+    #try:
+    #    if sum(e - s for s, e in (map(int, p) for p in pairs)) <= 10: # = is because the ranges are in VCF space, not BED space
+    #        continue
+    #except:
+    #    print >>sys.stderr, d, pairs
+    #    raise
 
     genes.append((d['chrom'], str(d['start']), str(d['end']), d['gene'], d['transcript'], d['exon'], d['ranges']))
 
@@ -62,11 +62,14 @@ print "chrom\tstart\tend\tgene\ttranscript\texon\tranges\tcov_score\tcpg\tcov_cp
 for i, row in enumerate(genes):
     vals = ["%.3f" % ys[i], "%.3f" % X['CpG'][i], "%.3f" % resid[i], "%.9f" % resid_pctile[i]]
     if not "," in row[-1]:
+        if not row[-1]:
+            row=list(row)
+            row[-1]=row[1]+"-"+row[2]
         print "\t".join(list(row) + vals)
         continue
      
     ranges = [x.split("-") for x in row[-1].split(",")]
     row=list(row)
     for s, e in ranges:
-        row[1], row[2] = s, e
+        row[1], row[2] = s, str(int(e)-1) # -1 because end coordinate of range is open ended.
         print "\t".join(list(row) + vals)
