@@ -1,10 +1,10 @@
 from __future__ import print_function
 
 # ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/ExAC.r0.3.sites.vep.vcf.gz
-VCF_PATH = "toyexac.vcf.gz" #"data/ExAC.r0.3.sites.vep.vcf.gz"
+VCF_PATH = "data/ExAC.r0.3.sites.vep.vcf.gz" #"toyexac.vcf.gz" #"data/ExAC.r0.3.sites.vep.vcf.gz"
 
 # ftp://ftp.ensembl.org/pub/release-75/gtf/homo_sapiens/Homo_sapiens.GRCh37.75.gtf.gz
-GTF_PATH = "toyexons.gtf.gz" #"data/Homo_sapiens.GRCh37.75.gtf.gz"
+GTF_PATH = "data/Homo_sapiens.GRCh37.75.gtf.gz" #"toyexons.gtf.gz" #"data/Homo_sapiens.GRCh37.75.gtf.gz"
 
 # ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/coverage
 COVERAGE_PATH = "data/"
