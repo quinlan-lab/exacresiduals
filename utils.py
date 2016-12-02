@@ -186,7 +186,7 @@ def read_exons(gtf, chrom, coverage_array, *args):
                 if v < cutoff:
                     if not is_under:
                         is_under = True
-                        locs.append([pos]) #start
+                        locs.append([pos]) #start, coverage is in bed format, so pos-1 is not necessary
                 else:
                     if is_under:
                         is_under = False
