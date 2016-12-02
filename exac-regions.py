@@ -1,10 +1,10 @@
 from __future__ import print_function
 
 # ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/ExAC.r0.3.sites.vep.vcf.gz
-VCF_PATH = "data/ExAC.r0.3.sites.vep.vcf.gz" #"toyexac.vcf.gz" #"data/ExAC.r0.3.sites.vep.vcf.gz"
+VCF_PATH = "toyexac.vcf.gz" #"data/ExAC.r0.3.sites.vep.vcf.gz"
 
 # ftp://ftp.ensembl.org/pub/release-75/gtf/homo_sapiens/Homo_sapiens.GRCh37.75.gtf.gz
-GTF_PATH = "data/Homo_sapiens.GRCh37.75.gtf.gz" #"toyexons.gtf.gz" #"data/Homo_sapiens.GRCh37.75.gtf.gz"
+GTF_PATH = "toyexons.gtf.gz" #"data/Homo_sapiens.GRCh37.75.gtf.gz"
 
 # ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/coverage
 COVERAGE_PATH = "data/"
@@ -142,8 +142,43 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             last = row['vstart']
 
         for j in exon_ends:
-            if mranges[-1][-1] < j:
-                mranges=u.get_ranges(last, exon_ends[-1], exon_starts, exon_ends)
+            try:
+                if mranges[-1][-1] < j:
+                    mranges=u.get_ranges(last, exon_ends[-1], exon_starts, exon_ends)
+                    for ranges in u.split_ranges(row['vstart'], mranges, splitter):
+
+                        row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
+                        row['posns'] = list(it.chain.from_iterable([range(s, e) for s, e in ranges]))
+                        row['ranges'] = ["%d-%d" % (s, e) for s, e in ranges]
+                        seqs = [fa[s:e] for s, e in ranges]
+                        # this can happen for UTR variants since we can't really get
+                        # anything upstream of them.
+                        if row['posns'] == []:  # UTR:
+                            p = row['vstart']
+                            row['coverage'] = ",".join(u.floatfmt(g) for g in coverage_array[p:p+1])
+                            row['posns'] = [p]
+                        # post-hoc sanity check
+                        exon_bases = set(it.chain.from_iterable(range(s, e) for s, e in zip(exon_starts, exon_ends)))
+                        ranges = set(it.chain.from_iterable(range(int(x[0]), int(x[1])) for x in (z.split("-") for z in row['ranges'])))
+                        m = len(ranges - exon_bases)
+                        if m > len(row['ranges']):
+                            print(last, row['vstart'], row['ranges'], len(ranges -
+                                exon_bases), zip(exon_starts, exon_ends),
+                                file=sys.stderr)
+
+                        # start or end? if we use end then can have - diff.
+                        row['ranges'] = ",".join(row['ranges'])
+                        row['n_bases'] = len(row['posns'])
+                        row['start'] = str(min(row['posns']))
+                        row['end'] = str(max(row['posns']))
+                        row['posns'] = ",".join(map(str, row['posns']))
+                        row['cg_content'] = u.floatfmt(np.mean([u.cg_content(s) for s in seqs]))
+                        if row['cg_content'] == 'nan':
+                            row['cg_content'] = '0'
+                        # we are re-using the dict for each loop so force a copy.
+                        out.append(dict(row))
+            except IndexError:
+                mranges=u.get_ranges(last, exon_ends[-1], exon_starts, exon_ends) 
                 for ranges in u.split_ranges(row['vstart'], mranges, splitter):
 
                     row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
@@ -174,8 +209,6 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                     row['cg_content'] = u.floatfmt(np.mean([u.cg_content(s) for s in seqs]))
                     if row['cg_content'] == 'nan':
                         row['cg_content'] = '0'
-
-                    # we are re-using the dict for each loop so force a copy.
                     out.append(dict(row))
 
     # still print in sorted order
