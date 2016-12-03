@@ -1,10 +1,10 @@
 from __future__ import print_function
 
 # ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/ExAC.r0.3.sites.vep.vcf.gz
-VCF_PATH = "data/ExAC.r0.3.sites.vep.vcf.gz" #"toyexac.vcf.gz" #"data/ExAC.r0.3.sites.vep.vcf.gz"
+VCF_PATH = "toyexac.vcf.gz" #"data/ExAC.r0.3.sites.vep.vcf.gz"
 
 # ftp://ftp.ensembl.org/pub/release-75/gtf/homo_sapiens/Homo_sapiens.GRCh37.75.gtf.gz
-GTF_PATH = "data/Homo_sapiens.GRCh37.75.gtf.gz" #"toyexons.gtf.gz" #"data/Homo_sapiens.GRCh37.75.gtf.gz"
+GTF_PATH = "toyexons.gtf.gz" #"data/Homo_sapiens.GRCh37.75.gtf.gz"
 
 # ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/coverage
 COVERAGE_PATH = "data/"
@@ -110,6 +110,10 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
                 row['posns'] = list(it.chain.from_iterable([range(s, e) for s, e in ranges]))
                 row['ranges'] = ["%d-%d" % (s, e) for s, e in ranges]
+                print(chrom_gene)
+                print(last,row['vstart'])
+                print(row['ranges'])
+                print(exon_starts,exon_ends)
                 seqs = [fa[s:e] for s, e in ranges]
                 # this can happen for UTR variants since we can't really get
                 # anything upstream of them.
@@ -185,8 +189,9 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
     out.sort(key=operator.itemgetter('start'))
     last = (None, None)
     for d in out:
-        key = d['start'], d['end']
+        key = d['start'], d['end'], d['gene'] # added d['gene'] so it doesn't throw away longer regions without variants in a different gene overlapping the same genome space
         if key == last:
+            print (key)
             continue
         last = key
         print("\t".join(map(str, (d[k] for k in keys))))
