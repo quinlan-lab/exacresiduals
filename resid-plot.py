@@ -71,5 +71,8 @@ for i, row in enumerate(genes):
     ranges = [x.split("-") for x in row[-1].split(",")]
     row=list(row)
     for s, e in ranges:
-        row[1], row[2] = s, str(int(e)-1) # -1 because end coordinate of range is open ended.
+        if int(e)-int(s)==0:
+            row[1], row[2] = s, e    
+        else:
+            row[1], row[2] = s, str(int(e)-1) # -1 because end coordinate of range is open ended.
         print "\t".join(list(row) + vals)
