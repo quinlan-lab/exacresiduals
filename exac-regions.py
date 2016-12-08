@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 # ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/ExAC.r0.3.sites.vep.vcf.gz
-VCF_PATH = "data/ExAC.r0.3.sites.vep.vcf.gz" #"toyexac.vcf.gz" "data/ExAC.r0.3.sites.vep.vcf.gz"
+VCF_PATH = "data/ExAC.r0.3.sites.vep.vcf.gz" #"toyexac.vcf.gz" #"data/ExAC.r0.3.sites.vep.vcf.gz"
 
 # ftp://ftp.ensembl.org/pub/release-75/gtf/homo_sapiens/Homo_sapiens.GRCh37.75.gtf.gz
 GTF_PATH = "data/Homo_sapiens.GRCh37.75.gtf.gz" #"toyexons.gtf.gz" #"data/Homo_sapiens.GRCh37.75.gtf.gz"
@@ -96,20 +96,26 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
         exon_starts = gene_exon_starts[chrom_gene]
         exon_ends = gene_exon_ends[chrom_gene]
         last = exon_starts[0]
-
         splitter = splitters.get(chrom_gene, None)
 
         for i, row in enumerate(trows, start=1):
             # istart and iend determine if we need to span exons.
 
             assert row['vstart'] <= exon_ends[-1], (row, exon_ends)
+            row['vstart']=row['vstart']+1 # vstart is bed format variant coordinate
             mranges = u.get_ranges(last, row['vstart'], exon_starts, exon_ends)
+            #print (mranges, 'mranges')
 
             for ranges in u.split_ranges(row['vstart'], mranges, splitter):
 
                 row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
-                row['posns'] = list(it.chain.from_iterable([range(s, e) for s, e in ranges]))
+                row['posns'] = list(it.chain.from_iterable([range(s, e+1) for s, e in ranges])) # since range is not inclusive at the end add +1
                 row['ranges'] = ["%d-%d" % (s, e) for s, e in ranges]
+                #print (row)
+                #print (last,row['vstart'], "last n' vstart")
+                #print (ranges, row['ranges'])
+                #print (exon_starts, exon_ends, "starts n' ends")
+                #print (splitter, "splitta!")
                 seqs = [fa[s:e] for s, e in ranges]
                 # this can happen for UTR variants since we can't really get
                 # anything upstream of them.
@@ -138,8 +144,17 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                     row['cg_content'] = '0'
 
                 # we are re-using the dict for each loop so force a copy.
-                out.append(dict(row))
-            last = row['vstart']
+                try:
+                    if row['ranges']:
+                        last = int(row['ranges'].split('-')[-1]) #so we can start at where the last range ended
+                        out.append(dict(row))
+                except KeyError:
+                    pass
+            #else:
+            #    row['ranges']=row['start']+"-"+row['end']
+            #    row['end']=str(int(row['end'])+1)
+            #    out.append(dict(row))
+            # last = row['vstart']
 
         for exon_ending in exon_ends: # when variant is the last variant in a gene, it fails to make regions for the end of the gene, thus this block of code
             try:
@@ -148,10 +163,10 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             except IndexError:
                 pass 
             mranges=u.get_ranges(last, exon_ends[-1], exon_starts, exon_ends)
-            for ranges in u.split_ranges(row['vstart'], mranges, splitter):
+            for ranges in u.split_ranges(last, mranges, splitter):
 
                 row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
-                row['posns'] = list(it.chain.from_iterable([range(s, e) for s, e in ranges]))
+                row['posns'] = list(it.chain.from_iterable([range(s, e+1) for s, e in ranges])) #range is not inclusive at the end
                 row['ranges'] = ["%d-%d" % (s, e) for s, e in ranges]
                 seqs = [fa[s:e] for s, e in ranges]
                 # this can happen for UTR variants since we can't really get
@@ -179,7 +194,12 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 if row['cg_content'] == 'nan':
                     row['cg_content'] = '0'
                 # we are re-using the dict for each loop so force a copy.
-                out.append(dict(row))
+            try:
+                if row['ranges']:
+                    last = int(row['ranges'].split('-')[-1]) #so we can start at where the last range ended
+                    out.append(dict(row))
+            except KeyError:
+                pass 
 
     # still print in sorted order
     out.sort(key=operator.itemgetter('start'))

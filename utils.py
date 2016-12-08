@@ -67,27 +67,28 @@ def get_ranges(last, vstart, exon_starts, exon_ends):
     ... (1560808, 1561033, 1562134, 1562379, 1562587, 1562824, 1563209, 1563559, 1563779, 1564102, 1564691, 1564946, 1565084, 1565985))
     [(1562576, 1562588), (1562675, 1562676)]
     """
-    assert last+1 >= exon_starts[0]
+    assert last >= exon_starts[0]
     assert vstart <= exon_ends[-1]
-    assert vstart+1 >= last, (vstart, last, exon_starts)
+    assert vstart >= last, (vstart, last, exon_starts)
     assert all(s < e for s, e in zip(exon_starts, exon_ends))
 
     istart = bisect_left(exon_starts, last) - 1
     if istart == -1: istart = 0
     [(0, 6), (10, 11)]
 
-    assert exon_starts[istart] <= last+1, (exon_starts[istart], last, istart)
-    if exon_ends[istart] <= last:
+    assert exon_starts[istart] <= last, (exon_starts[istart], last, istart)
+    if exon_ends[istart] < last: # removed <= because now we include variants at the end of the region
         istart += 1
         last = exon_starts[istart]
-
     start = last
     ranges = []
-    while start <= vstart and istart < len(exon_starts):
-        ranges.append((start, exon_ends[istart] + 1))
+    while start < vstart and istart < len(exon_starts): #<= lets it capture 0 length regions, so I removed it and the +1 allows it to make 1 bp regions when two variants are right next to one another
+      #  if exon_ends[istart]==vstart+1: #variants are already included at the end of the region, so in the case where a variant is at the end of an exon, it's irrelevant, and it will make an incorrect extra 1 bp region without this statement
+      #      break
+        ranges.append((start, exon_ends[istart])) #removed +1 from exon_ends[istart] + 1, because IntervalSet is already in 0-based half-open format
         istart += 1
-        if ranges[-1][1] > vstart:
-            ranges[-1] = (ranges[-1][0], vstart + 1)
+        if ranges[-1][1] >= vstart: # equal to is now possible, since we are including variant start+1 and ranges are in 0-based half-open
+            ranges[-1] = (ranges[-1][0], vstart) #removed +1 from vstart + 1, because IntervalSet is already in 0-based half-open format
             break
         start = exon_starts[istart]
 
@@ -146,21 +147,22 @@ def read_exons(gtf, chrom, coverage_array, *args):
     split_iv = InterLap()
     # preempt any bugs by checking that we are getting a particular chrom
     assert gtf[0] == "|", ("expecting a tabix query so we can handle chroms correctly")
-    f1 = open("selfchainremoved.txt","a")
-    f2 = open("segdupsremoved.txt","a")
+    f1 = open("selfchaincut.txt","a")
+    f2 = open("segdupscut.txt","a")
     f3 = open("coveragecut.txt","a")
     for a in args:
         assert a[0] == "|", ("expecting a tabix query so we can handle chroms correctly", a)
     
         # any file that gets sent in will be used to split regions (just like
         # low-coverage). For example, we split on self-chains as well.
+#TODO: comment this block if you don't want any filtering by self-chains or segdups
         for toks in (x.strip().split("\t") for x in ts.nopen(a)): # adds self chains and segdups to splitters list, so that exons can be split, and they are removed from CCRs
             s, e = int(toks[1]), int(toks[2])
             split_iv.add((s, e))
             if len(toks) > 3:
-                f1.write("\t".join(toks)+"\n")
+                f1.write("\t".join(toks)+"\n") # self chain
             else:
-                f2.write("\t".join(toks)+"\n")
+                f2.write("\t".join(toks)+"\n") # segdups
                 
 
     for toks in (x.rstrip('\r\n').split("\t") for x in ts.nopen(gtf) if x[0] != "#"):
@@ -174,6 +176,7 @@ def read_exons(gtf, chrom, coverage_array, *args):
         cutoff = 0.3
 
         # find sections of exon under certain coverage.
+#TODO: comment this if we don't want coverage cutoff filtering
         if coverage_array[start-1:end].min() < cutoff: # doesn't bother to run these operations if there is not one bp below the cutoff
             #splitters[key].add([(start - 1, end)]) #this takes out the whole exon for one section of poor coverage
             a = coverage_array[start - 1: end]
