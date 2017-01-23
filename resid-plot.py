@@ -32,8 +32,12 @@ for i, d in enumerate(ts.reader(1)):
     #    raise
 
     genes.append((d['chrom'], str(d['start']), str(d['end']), d['gene'], d['transcript'], d['exon'], d['ranges']))
-
-    coverage = map(float, d['coverage'].split(","))
+    coverage=[]
+    for val in d['coverage'].split(","):
+        if val:
+            coverage.append(float(val))
+    if not coverage:
+        coverage=[0]
     X['CpG'].append(float(d['cg_content']))
     ys.append(sum(coverage))
 
@@ -61,18 +65,15 @@ assert len(genes) == len(ys) == len(resid)
 print "chrom\tstart\tend\tgene\ttranscript\texon\tranges\tcov_score\tcpg\tcov_cpg_resid\tcov_cpg_resid_pctile"
 for i, row in enumerate(genes):
     vals = ["%.3f" % ys[i], "%.3f" % X['CpG'][i], "%.3f" % resid[i], "%.9f" % resid_pctile[i]]
-    if not "," in row[-1]:
-        if not row[-1]:
-            row=list(row)
-            row[-1]=row[1]+"-"+row[2]
-        print "\t".join(list(row) + vals)
-        continue
+    #if not "," in row[-1]:
+    #    if not row[-1]:
+    #        row=list(row)
+    #        row[-1]=row[1]+"-"+row[2]
+    #    print "\t".join(list(row) + vals)
+    #    continue
      
     ranges = [x.split("-") for x in row[-1].split(",")]
     row=list(row)
     for s, e in ranges:
-        if int(e)-int(s)==0:
-            row[1], row[2] = s, e    
-        else:
-            row[1], row[2] = s, str(int(e)-1) # -1 because end coordinate of range is open ended.
+        row[1], row[2] = s, e
         print "\t".join(list(row) + vals)

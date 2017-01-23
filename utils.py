@@ -8,7 +8,7 @@ import toolshed as ts
 from interlap import InterLap, Interval as IntervalSet, reduce as ireduce
 import numpy as np
 
-def split_ranges(position, ranges, splitters): # if range is in splitters, it is removed from potential constraint regions
+def split_ranges(position, ranges, splitters): # if range is in splitters, it is removed from potential constraint regions; import my version of interlap
     """
     >>> split_ranges(1033, [(1018, 1034)], [(1022, 1034)])
     [[(1018, 1022)]]
@@ -34,7 +34,7 @@ def split_ranges(position, ranges, splitters): # if range is in splitters, it is
     if splitters is None:
         return [ranges]
 
-    return [x._vals for x in IntervalSet(ranges).split(splitters)]
+    return [x._vals for x in IntervalSet(ranges).split(splitters)] # this returns the wrong answer if splitters are next to each other like (22,26),(26,29)
 
 def get_ranges(last, vstart, exon_starts, exon_ends):
     """
@@ -77,9 +77,10 @@ def get_ranges(last, vstart, exon_starts, exon_ends):
     [(0, 6), (10, 11)]
 
     assert exon_starts[istart] <= last, (exon_starts[istart], last, istart)
-    if exon_ends[istart] < last: # removed <= because now we include variants at the end of the region
+    if exon_ends[istart] <= last:
         istart += 1
-        last = exon_starts[istart]
+        if istart < len(exon_starts): # in case last and exon ends are equal, it will loop through again, but I want that last loop
+            last = exon_starts[istart]
     start = last
     ranges = []
     while start < vstart and istart < len(exon_starts): #<= lets it capture 0 length regions, so I removed it and the +1 allows it to make 1 bp regions when two variants are right next to one another
