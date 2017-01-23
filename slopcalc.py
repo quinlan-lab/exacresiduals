@@ -1,6 +1,8 @@
 import subprocess
 
-f=open('codingtranscriptome.bed','r')
+f1=open('flatexome.bed','r')
+f2=open('cutregions.txt','r')
+f3=open('results/2016_12_10/resids.txt')
 prevgene=None
 gbed=''
 for line in f:
@@ -19,8 +21,3 @@ for line in f:
             for line in output.strip().split("\n"):
                 print line + "\t" + gene
     prevgene=gene
-p=subprocess.Popen(['bedtools merge'],shell=True,stdin=subprocess.PIPE,stdout=subprocess.PIPE)
-output,err = p.communicate(gbed)
-for line in output.strip().split("\n"):
-    print line + "\t" + prevgene
-

@@ -6,15 +6,15 @@ python flattenexome.py | sort -k1,1 -k2,2n > flatexome.bed
 echo "length of our flattened exome"
 awk '{t+=$3-$2} END {print t}' flatexome.bed # length of flattened exome
 echo "length of our most recent regions"
-awk '{t+=$3-$2} END {print t}' results/2016_12_01/weightedresiduals.txt # length of final regions
+awk '{t+=$3-$2} END {print t}' results/2016_12_10/weightedresiduals.txt # length of final regions
 
-cat coveragecut.txt segdupsremoved.txt selfchainremoved.txt | cut -f -3 | sort -k1,1 -k2,2n | bedtools merge | bedtools intersect -a - -b flatexome.bed -sorted > cutregions.txt
+cat coveragecut.txt segdupscut.txt selfchaincut.txt | cut -f -3 | sort -k1,1 -k2,2n | bedtools merge | bedtools intersect -a - -b flatexome.bed -sorted > cutregions.txt
 awk '{t+=$3-$2} END {print t}' cutregions.txt
 
-bedtools intersect -a selfchainremoved.txt -b cutregions.txt | sort -k1,1 -k2,2n | awk '{t+=$3-$2} END {print t}'
-bedtools intersect -a segdupsremoved.txt -b cutregions.txt | sort -k1,1 -k2,2n | awk '{t+=$3-$2} END {print t}'
+bedtools intersect -a selfchaincut.txt -b cutregions.txt | sort -k1,1 -k2,2n | awk '{t+=$3-$2} END {print t}'
+bedtools intersect -a segdupscut.txt -b cutregions.txt | sort -k1,1 -k2,2n | awk '{t+=$3-$2} END {print t}'
 bedtools intersect -a coveragecut.txt -b cutregions.txt | sort -k1,1 -k2,2n | awk '{t+=$3-$2} END {print t}'
 # amount that overlaps with the other two:
-bedtools intersect -a <(bedtools intersect -a coveragecut.txt -b flatexome.bed) -b selfchainremoved.txt segdupsremoved.txt | sort -k1,1 -k2,2n | bedtools merge | awk '{t+=$3-$2} END {print t}'
-bedtools intersect -a <(bedtools intersect -a segdupsremoved.txt -b flatexome.bed) -b coveragecut.txt selfchainremoved.txt | sort -k1,1 -k2,2n | bedtools merge | awk '{t+=$3-$2} END {print t}'
-bedtools intersect -a <(bedtools intersect -a selfchainremoved.txt -b flatexome.bed) -b coveragecut.txt segdupsremoved.txt | sort -k1,1 -k2,2n | bedtools merge | awk '{t+=$3-$2} END {print t}'
+bedtools intersect -a <(bedtools intersect -a coveragecut.txt -b flatexome.bed) -b selfchaincut.txt segdupscut.txt | sort -k1,1 -k2,2n | bedtools merge | awk '{t+=$3-$2} END {print t}'
+bedtools intersect -a <(bedtools intersect -a segdupscut.txt -b flatexome.bed) -b coveragecut.txt selfchaincut.txt | sort -k1,1 -k2,2n | bedtools merge | awk '{t+=$3-$2} END {print t}'
+bedtools intersect -a <(bedtools intersect -a selfchaincut.txt -b flatexome.bed) -b coveragecut.txt segdupscut.txt | sort -k1,1 -k2,2n | bedtools merge | awk '{t+=$3-$2} END {print t}'

@@ -109,7 +109,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             for ranges in u.split_ranges(row['vstart'], mranges, splitter):
 
                 row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
-                row['posns'] = list(it.chain.from_iterable([range(s, e+1) for s, e in ranges])) # since range is not inclusive at the end add +1
+                row['posns'] = list(it.chain.from_iterable([range(s+1, e+1) for s, e in ranges])) # since range is not inclusive at the end add +1, need to add +1 to start
                 row['ranges'] = ["%d-%d" % (s, e) for s, e in ranges]
                 #print (row)
                 #print (last,row['vstart'], "last n' vstart")
@@ -136,8 +136,8 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 # start or end? if we use end then can have - diff.
                 row['ranges'] = ",".join(row['ranges'])
                 row['n_bases'] = len(row['posns'])
-                row['start'] = str(min(row['posns']))
-                row['end'] = str(max(row['posns']))
+                row['start'] = str(min(row['posns'])-1) #I put -1 because I am not including the position of the start coordinate, as it is 0-based.  however, I want to make i the start coordinate
+                row['end'] = str(max(row['posns'])) # base on ranges
                 row['posns'] = ",".join(map(str, row['posns']))
                 row['cg_content'] = u.floatfmt(np.mean([u.cg_content(s) for s in seqs]))
                 if row['cg_content'] == 'nan':
@@ -166,8 +166,13 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             for ranges in u.split_ranges(last, mranges, splitter):
 
                 row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
-                row['posns'] = list(it.chain.from_iterable([range(s, e+1) for s, e in ranges])) #range is not inclusive at the end
+                row['posns'] = list(it.chain.from_iterable([range(s+1, e+1) for s, e in ranges])) #range is not inclusive at the end, need to add +1 to s
                 row['ranges'] = ["%d-%d" % (s, e) for s, e in ranges]
+                #print (row)
+                #print (last,row['vstart'], "last n' vstart")
+                #print (ranges, row['ranges'])
+                #print (exon_starts, exon_ends, "starts n' ends")
+                #print (splitter, "splitta!")
                 seqs = [fa[s:e] for s, e in ranges]
                 # this can happen for UTR variants since we can't really get
                 # anything upstream of them.
@@ -187,19 +192,19 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 # start or end? if we use end then can have - diff.
                 row['ranges'] = ",".join(row['ranges'])
                 row['n_bases'] = len(row['posns'])
-                row['start'] = str(min(row['posns']))
+                row['start'] = str(min(row['posns'])-1) #I put -1 because I am not including the position of the start coordinate, as it is 0-based.  however, I want to make it he start coordinate 
                 row['end'] = str(max(row['posns']))
                 row['posns'] = ",".join(map(str, row['posns']))
                 row['cg_content'] = u.floatfmt(np.mean([u.cg_content(s) for s in seqs]))
                 if row['cg_content'] == 'nan':
                     row['cg_content'] = '0'
                 # we are re-using the dict for each loop so force a copy.
-            try:
-                if row['ranges']:
-                    last = int(row['ranges'].split('-')[-1]) #so we can start at where the last range ended
-                    out.append(dict(row))
-            except KeyError:
-                pass 
+                try:
+                    if row['ranges']:
+                        last = int(row['ranges'].split('-')[-1]) #so we can start at where the last range ended
+                        out.append(dict(row))
+                except KeyError:
+                    pass 
 
     # still print in sorted order
     out.sort(key=operator.itemgetter('start'))
