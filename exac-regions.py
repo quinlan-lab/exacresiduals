@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 # ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/ExAC.r0.3.sites.vep.vcf.gz
-VCF_PATH = "data/ExAC.r0.3.sites.vep.vcf.gz" #"toyexac.vcf.gz" #"data/ExAC.r0.3.sites.vep.vcf.gz"
+VCF_PATH = "data/ExAC.r0.3.sites.vep.vcf.gz" #"toyexac.vcf.gz" #"data/gnomad.exomes.r2.0.1.sites.vcf.gz"
 
 # ftp://ftp.ensembl.org/pub/release-75/gtf/homo_sapiens/Homo_sapiens.GRCh37.75.gtf.gz
 GTF_PATH = "data/Homo_sapiens.GRCh37.75.gtf.gz" #"toyexons.gtf.gz" #"data/Homo_sapiens.GRCh37.75.gtf.gz"
@@ -63,7 +63,6 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
         if not (v.FILTER is None or v.FILTER == "PASS"):
             continue
         info = v.INFO
-        is_multi = bool(info.get('OLD_MULTIALLELIC'))
         try:
             csqs = [dict(zip(kcsq, c.split("|"))) for c in info['CSQ'].split(",")]
         except KeyError:
