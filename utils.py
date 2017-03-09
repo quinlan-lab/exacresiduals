@@ -157,13 +157,13 @@ def read_exons(gtf, chrom, coverage_array, *args):
         # any file that gets sent in will be used to split regions (just like
         # low-coverage). For example, we split on self-chains as well.
 #TODO: comment this block if you don't want any filtering by self-chains or segdups
-#        for toks in (x.strip().split("\t") for x in ts.nopen(a)): # adds self chains and segdups to splitters list, so that exons can be split, and they are removed from CCRs
-#            s, e = int(toks[1]), int(toks[2])
-#            split_iv.add((s, e))
-#            if len(toks) > 3:
-#                f1.write("\t".join(toks)+"\n") # self chain
-#            else:
-#                f2.write("\t".join(toks)+"\n") # segdups
+        for toks in (x.strip().split("\t") for x in ts.nopen(a)): # adds self chains and segdups to splitters list, so that exons can be split, and they are removed from CCRs
+            s, e = int(toks[1]), int(toks[2])
+            split_iv.add((s, e))
+            if len(toks) > 3:
+                f1.write("\t".join(toks)+"\n") # self chain
+            else:
+                f2.write("\t".join(toks)+"\n") # segdups
                 
 
     for toks in (x.rstrip('\r\n').split("\t") for x in ts.nopen(gtf) if x[0] != "#"):
@@ -178,31 +178,31 @@ def read_exons(gtf, chrom, coverage_array, *args):
 
         # find sections of exon under certain coverage.
 #TODO: comment this if we don't want coverage cutoff filtering
-#        if coverage_array[start-1:end].min() < cutoff: # doesn't bother to run these operations if there is not one bp below the cutoff
+        if coverage_array[start-1:end].min() < cutoff: # doesn't bother to run these operations if there is not one bp below the cutoff
             #splitters[key].add([(start - 1, end)]) #this takes out the whole exon for one section of poor coverage
-#            a = coverage_array[start - 1: end]
+            a = coverage_array[start - 1: end]
             #print str(start-1),end,a
-#            is_under, locs = False, [] # generates "locs" for each exon"
-#            if a[0] < cutoff:
-#                locs.append([start - 1])
-#                is_under = True # so you can initialize is_under
-#            for pos, v in enumerate(a[1:], start=start): #enumerates positions in the coverage array starting at the beginning of the exon
-#                if v < cutoff:
-#                    if not is_under:
-#                        is_under = True
-#                        locs.append([pos - 1]) #start, coverage is in bed format, so pos-1 is necessary, since splitters are open left and right side
-#                else:
-#                    if is_under:
-#                        is_under = False
-#                        locs[-1].append(pos) #end
-#            if is_under:
-#                locs[-1].append(end) # in this case would end splitter at the end of the exon
-#           splitters[key].add(map(tuple, locs))
-#            for i in locs:
-#                f3.write(chrom+"\t"+"\t".join(map(str,i))+"\n")
+            is_under, locs = False, [] # generates "locs" for each exon"
+            if a[0] < cutoff:
+                locs.append([start - 1])
+                is_under = True # so you can initialize is_under
+            for pos, v in enumerate(a[1:], start=start): #enumerates positions in the coverage array starting at the beginning of the exon
+                if v < cutoff:
+                    if not is_under:
+                        is_under = True
+                        locs.append([pos - 1]) #start, coverage is in bed format, so pos-1 is necessary, since splitters are open left and right side
+                else:
+                    if is_under:
+                        is_under = False
+                        locs[-1].append(pos) #end
+            if is_under:
+                locs[-1].append(end) # in this case would end splitter at the end of the exon
+           splitters[key].add(map(tuple, locs))
+            for i in locs:
+                f3.write(chrom+"\t"+"\t".join(map(str,i))+"\n")
 
-#        for s, e in split_iv.find((start - 1, end)):
-#            splitters[key].add([(s, e)])
+        for s, e in split_iv.find((start - 1, end)):
+            splitters[key].add([(s, e)])
 
         genes[key].add([(start-1, end)])
     # sort by start so we can do binary search.
