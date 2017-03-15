@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 # ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/ExAC.r0.3.sites.vep.vcf.gz
-VCF_PATH = "data/ExAC.r0.3.sites.vep.vcf.gz" #"toyexac.vcf.gz" #"data/gnomad.exomes.r2.0.1.sites.vcf.gz"
+VCF_PATH = "toyexac.vcf.gz" #"data/ExAC.r0.3.sites.vep.vcf.gz" #"toyexac.vcf.gz" #"data/gnomad.exomes.r2.0.1.sites.vcf.gz"
 
 # ftp://ftp.ensembl.org/pub/release-75/gtf/homo_sapiens/Homo_sapiens.GRCh37.75.gtf.gz
 GTF_PATH = "data/Homo_sapiens.GRCh37.75.gtf.gz" #"toyexons.gtf.gz" #"data/Homo_sapiens.GRCh37.75.gtf.gz"
@@ -28,6 +28,13 @@ import utils as u
 from cyvcf2 import VCF
 from pyfaidx import Fasta
 
+import argparse
+
+parser=argparse.ArgumentParser()
+parser.add_argument("-s", "--singletons", help="if you do NOT want singletons", action="store_false", default=True)
+args=parser.parse_args()
+singletons=args.singletons
+
 zip = it.izip
 
 
@@ -43,6 +50,36 @@ header = "chrom\tstart\tend\taf\tfunctional\tgene\ttranscript\texon\timpact\tvst
 print("#" + header)
 keys = header.split("\t")
 global mranges, splitter
+
+
+def merge_rows(rows):
+    """
+    >>> merge_rows([dict(gene='ABC', vstart=1, vend=3), dict(gene='ABC', vstart=2, vend=5), dict(gene='ABC', vstart=4, vend=6)])
+    [{'vstart': 1, 'vend': 6, 'gene': 'ABC'}]
+    >>> merge_rows([dict(gene='ABC', vstart=1, vend=6), dict(gene='ABC', vstart=2, vend=6), dict(gene='ABC', vstart=4, vend=6)])
+    [{'vstart': 1, 'vend': 6, 'gene': 'ABC'}]
+    >>> merge_rows([dict(gene='ABC', vstart=1, vend=2), dict(gene='ABC', vstart=1, vend=4), dict(gene='ABC', vstart=1, vend=6)])
+    [{'vstart': 1, 'vend': 6, 'gene': 'ABC'}]
+    >>> merge_rows([dict(gene='ABC', vstart=1, vend=2), dict(gene='Easy as 123', vstart=1, vend=4), dict(gene='Easy as 123', vstart=1, vend=6)])
+    [{'vstart': 1, 'vend': 2, 'gene': 'ABC'}, {'vstart': 1, 'vend': 6, 'gene': 'Easy as 123'}]
+    >>> merge_rows([dict(gene='ABC', vstart=1, vend=2), dict(gene='ABC', vstart=2, vend=4), dict(gene='ABC', vstart=4, vend=6)])
+    [{'vstart': 1, 'vend': 2, 'gene': 'ABC'}, {'vstart': 2, 'vend': 4, 'gene': 'ABC'}, {'vstart': 4, 'vend': 6, 'gene': 'ABC'}]
+    >>> merge_rows([dict(gene='ABC', vstart=1, vend=2), dict(gene='Easy as', vstart=1, vend=4), dict(gene='123', vstart=1, vend=6)])
+    [{'vstart': 1, 'vend': 2, 'gene': 'ABC'}, {'vstart': 1, 'vend': 4, 'gene': 'Easy as'}, {'vstart': 1, 'vend': 6, 'gene': '123'}]
+    """
+    new_rows = [rows[0]]
+    for row in rows[1:]:
+        if new_rows[-1]['gene'] == row['gene'] and row['vstart'] < new_rows[-1]['vend']:
+            new_rows[-1]['vend'] = row['vend']
+        else:
+            new_rows.append(row)
+    return new_rows
+
+import doctest
+res = doctest.testmod(verbose=0)
+if res.failed != 0:
+    sys.exit(1)
+
 for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
     rows = []
     print("reading chrom", file=sys.stderr)
@@ -72,9 +109,11 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
         if not isinstance(ac, (int, long)):
             ac = max(ac)
         af = ac / float(info['AN_Adj'] or 1)
+        if ac == 1: #self-explanatory, but filters out singletons
+            if not singletons: continue
         # NOTE: not requiring canonical or requiring the csq to match the
         # particular alt that we chose.
-        for csq in (c for c in csqs if c['BIOTYPE'] == 'protein_coding'):
+        for csq in (c for c in csqs if c['BIOTYPE'] == 'protein_coding'): # getting duplicate rows because of this, wastes memory and potentially compute time, could remove and replace with just if isfunctional, add to rows then move on?
             # skipping intronic
             if csq['Feature'] == '' or csq['EXON'] == '' or csq['cDNA_position'] == '': continue
             if not u.isfunctional(csq): continue
@@ -87,8 +126,15 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 impact=csq['Consequence'],
                 cdna_start=cdna_start,   cdna_end=cdna_end))
 
+        
+
     # now we need to sort and then group by gene so we know the gaps.
     rows.sort(key=operator.itemgetter('gene', 'vstart', 'vend'))
+
+#TODO:we're only using vstart. maybe we should be using end, normalizing and decomposing?
+# we may be misrepresenting deletions as in the case of vstart, vend, pos: 145838622 145838695 145838623; shouldn't this whole area not be covered?
+    
+    rows = merge_rows(rows)
 
     out = []
     for chrom_gene, trows in it.groupby(rows, lambda row: (row['chrom'], row['gene'])):
@@ -100,12 +146,12 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
         for i, row in enumerate(trows, start=1):
             # istart and iend determine if we need to span exons.
 
-            assert row['vstart'] <= exon_ends[-1], (row, exon_ends)
-            row['vstart']=row['vstart']+1 # vstart is bed format variant coordinate
-            mranges = u.get_ranges(last, row['vstart'], exon_starts, exon_ends)
+            assert row['vstart'] <= exon_ends[-1], (row, exon_ends) # maybe use POS instead of vstart, so we can normalize and decompose?; should i check if end is less?
+            row['vstart']=row['vstart']+1 # vstart is bed format variant coordinate, still true
+            mranges = u.get_ranges(last, row['vstart'], exon_starts, exon_ends)# TODO: add vend
             #print (mranges, 'mranges')
 
-            for ranges in u.split_ranges(row['vstart'], mranges, splitter):
+            for ranges in u.split_ranges(row['vstart'], mranges, splitter): #TODO: add vend
 
                 row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
                 row['posns'] = list(it.chain.from_iterable([range(s+1, e+1) for s, e in ranges])) # since range is not inclusive at the end add +1, need to add +1 to start
@@ -135,7 +181,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 # start or end? if we use end then can have - diff.
                 row['ranges'] = ",".join(row['ranges'])
                 row['n_bases'] = len(row['posns'])
-                row['start'] = str(min(row['posns'])-1) #I put -1 because I am not including the position of the start coordinate, as it is 0-based.  however, I want to make i the start coordinate
+                row['start'] = str(min(row['posns'])-1) #I put -1 because I am not including the position of the start coordinate, as it is 0-based.  however, I want to make it the start coordinate
                 row['end'] = str(max(row['posns'])) # base on ranges
                 row['posns'] = ",".join(map(str, row['posns']))
                 row['cg_content'] = u.floatfmt(np.mean([u.cg_content(s) for s in seqs]))
@@ -176,7 +222,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 # this can happen for UTR variants since we can't really get
                 # anything upstream of them.
                 if row['posns'] == []:  # UTR:
-                    p = row['vstart']
+                    p = row['vstart'] # TODO: maybe replace w/vend
                     row['coverage'] = ",".join(u.floatfmt(g) for g in coverage_array[p:p+1])
                     row['posns'] = [p]
                 # post-hoc sanity check

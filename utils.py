@@ -34,7 +34,7 @@ def split_ranges(position, ranges, splitters): # if range is in splitters, it is
     if splitters is None:
         return [ranges]
 
-    return [x._vals for x in IntervalSet(ranges).split(splitters)] # this returns the wrong answer if splitters are next to each other like (22,26),(26,29)
+    return [x._vals for x in IntervalSet(ranges).split(splitters)]
 
 def get_ranges(last, vstart, exon_starts, exon_ends):
     """
@@ -197,7 +197,7 @@ def read_exons(gtf, chrom, coverage_array, *args):
                         locs[-1].append(pos) #end
             if is_under:
                 locs[-1].append(end) # in this case would end splitter at the end of the exon
-           splitters[key].add(map(tuple, locs))
+            splitters[key].add(map(tuple, locs))
             for i in locs:
                 f3.write(chrom+"\t"+"\t".join(map(str,i))+"\n")
 
