@@ -56,6 +56,9 @@ def get_ranges(last, vstart, exon_starts, exon_ends):
     ... 65985))
     [(61018, 61033)]
 
+    >>> get_ranges(61018, 62023, (60925, 62000), (61033, 62025))
+    [(61018, 61033), (62000, 62023)]
+
     >>> get_ranges(56, 95, range(0, 1000, 10), range(5, 1000, 10))
     [(60, 65), (70, 75), (80, 85), (90, 95)]
 
@@ -211,7 +214,7 @@ def read_exons(gtf, chrom, coverage_array, *args):
         for s, e in split_iv.find((start - 1, end)):
             splitters[key].add([(s, e)])
 
-        genes[key].add([(start-1, end)])
+        genes[key].add([(start-1, end)]) # converts GTF exon coordinates to BED format
     # sort by start so we can do binary search.
     genes = dict((k, sorted(v._vals)) for k, v in genes.iteritems())
     #ends = dict((k, sorted(v)) for k, v in ends.iteritems())
