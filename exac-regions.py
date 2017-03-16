@@ -46,7 +46,6 @@ kcsq = exac["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
 
 fasta = Fasta(FASTA_PATH, read_ahead=10000, as_raw=True)
 
-#header = "chrom\tstart\tend\taf\tfunctional\tgene\ttranscript\texon\timpact\tvstart\tvend\tn_bases\tcg_content\tcdna_start\tcdna_end\tranges\tcoverage\tposns"
 header = "chrom\tstart\tend\taf\tfunctional\tgene\ttranscript\texon\timpact\tvstart\tvend\tn_bases\tcg_content\tranges\tcoverage\tposns"
 print("#" + header)
 keys = header.split("\t")
@@ -119,13 +118,13 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             if csq['Feature'] == '' or csq['EXON'] == '' : continue #or csq['cDNA_position'] == '': continue
             if not u.isfunctional(csq): continue
 
-            #cdna_start, cdna_end = u.get_cdna_start_end(csq['cDNA_position'], v)
+            cdna_start, cdna_end = u.get_cdna_start_end(csq['cDNA_position'], v)
 
             rows.append(dict(chrom=v.CHROM, vstart=v.start, vend=v.end, af=af,
                 functional=int(u.isfunctional(csq)),
                 gene=csq['SYMBOL'], transcript=csq['Feature'], exon=csq['EXON'],
-                impact=csq['Consequence']))
-            #    cdna_start=cdna_start,   cdna_end=cdna_end))
+                impact=csq['Consequence'],
+                cdna_start=cdna_start,   cdna_end=cdna_end))
 
         
 
