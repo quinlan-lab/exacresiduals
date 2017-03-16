@@ -115,7 +115,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
         # particular alt that we chose.
         for csq in (c for c in csqs if c['BIOTYPE'] == 'protein_coding'): # getting duplicate rows because of this, wastes memory and potentially compute time, could remove and replace with just if isfunctional, add to rows then move on?
             # skipping intronic
-            if csq['Feature'] == '' or csq['EXON'] == '' or csq['cDNA_position'] == '': continue
+            if csq['Feature'] == '' or csq['EXON'] == '' : continue #or csq['cDNA_position'] == '': continue
             if not u.isfunctional(csq): continue
 
             cdna_start, cdna_end = u.get_cdna_start_end(csq['cDNA_position'], v)
@@ -148,10 +148,10 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
 
             assert row['vstart'] <= exon_ends[-1], (row, exon_ends) # maybe use POS instead of vstart, so we can normalize and decompose?; should i check if end is less?
             row['vstart']=row['vstart']+1 # vstart is bed format variant coordinate, still true
-            mranges = u.get_ranges(last, row['vstart'], exon_starts, exon_ends)# TODO: add vend
+            mranges = u.get_ranges(last, row['vstart'], exon_starts, exon_ends) #TODO: maybe use POS instead of vstart?
             #print (mranges, 'mranges')
 
-            for ranges in u.split_ranges(row['vstart'], mranges, splitter): #TODO: add vend
+            for ranges in u.split_ranges(row['vstart'], row['vend'], mranges, splitter):
 
                 row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
                 row['posns'] = list(it.chain.from_iterable([range(s+1, e+1) for s, e in ranges])) # since range is not inclusive at the end add +1, need to add +1 to start
@@ -208,8 +208,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             except IndexError:
                 pass 
             mranges=u.get_ranges(last, exon_ends[-1], exon_starts, exon_ends)
-            for ranges in u.split_ranges(last, mranges, splitter):
-
+            for ranges in u.split_ranges(last, row['vend'], mranges, splitter): # TODO: don't use vend?
                 row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
                 row['posns'] = list(it.chain.from_iterable([range(s+1, e+1) for s, e in ranges])) #range is not inclusive at the end, need to add +1 to s
                 row['ranges'] = ["%d-%d" % (s, e) for s, e in ranges]
