@@ -8,32 +8,41 @@ import toolshed as ts
 from interlap import InterLap, Interval as IntervalSet, reduce as ireduce
 import numpy as np
 
-def split_ranges(position, ranges, splitters): # if range is in splitters, it is removed from potential constraint regions; import my version of interlap
+def split_ranges(position, vend, ranges, splitters): # if range is in splitters, it is removed from potential constraint regions; import my version of interlap
     """
-    >>> split_ranges(1033, [(1018, 1034)], [(1022, 1034)])
+    >>> split_ranges(1033, 1033, [(1018, 1034)], [(1022, 1034)])
     [[(1018, 1022)]]
 
-    >>> split_ranges(1033, [(1018, 1034)], None)
+    >>> split_ranges(1033, 1033, [(1018, 1034)], None)
     [[(1018, 1034)]]
 
-    >>> split_ranges(1033, [(1018, 1034)], [(1022, 1024), (1028, 1034)])
+    >>> split_ranges(1033, 1033, [(1018, 1034)], [(1022, 1024), (1028, 1034)])
     [[(1018, 1022)], [(1024, 1028)]]
 
-    >>> split_ranges(57, [(18, 24), (28, 35), (55, 60)], [(28, 35), (55, 57)])
+    >>> split_ranges(57, 57, [(18, 24), (28, 35), (55, 60)], [(28, 35), (55, 57)])
     [[(18, 24)], [(57, 60)]]
 
-    >>> split_ranges(5, [(12, 18), (22, 28), (32, 39), (42, 48)],
+    >>> split_ranges(5, 5, [(12, 18), (22, 28), (32, 39), (42, 48)],
     ...                 [(12, 18), (22, 26),           (44, 48)])
     [[(26, 28)], [(32, 39)], [(42, 44)]]
 
-    >>> split_ranges(5, [(11, 18), (22, 28), (32, 39), (42, 48)],
+    >>> split_ranges(5, 5, [(11, 18), (22, 28), (32, 39), (42, 48)],
     ...                 [(12, 18), (22, 26),           (44, 48)])
     [[(11, 12)], [(26, 28)], [(32, 39)], [(42, 44)]]
+    
+    >>> split_ranges(1020, 1030, [(1018, 1034)], None)
+    [[(1018, 1020)], [(1030, 1034)]]
 
+    >>> split_ranges(1020, 1030, [(1018, 1034)], [(1030, 1032)])
+    [[(1018, 1020)], [(1032, 1034)]]
     """
+    if vend > position:
+        ranges=[x._vals for x in IntervalSet(ranges).split([(position,vend)])]
+        if splitters is not None:
+            return [x._vals for x in IntervalSet([x[0] for x in ranges]).split(splitters)]
+        return ranges
     if splitters is None:
         return [ranges]
-
     return [x._vals for x in IntervalSet(ranges).split(splitters)]
 
 def get_ranges(last, vstart, exon_starts, exon_ends):
@@ -45,28 +54,26 @@ def get_ranges(last, vstart, exon_starts, exon_ends):
     ... 60565, 60808, 61033, 62134, 62379, 62587, 62824,
     ... 63209, 63559, 63779, 64102, 64691, 64946, 65084,
     ... 65985))
-    [(61018, 61034), (62029, 62030)]
+    [(61018, 61033)]
 
     >>> get_ranges(56, 95, range(0, 1000, 10), range(5, 1000, 10))
-    [(60, 66), (70, 76), (80, 86), (90, 96)]
+    [(60, 65), (70, 75), (80, 85), (90, 95)]
 
     >>> get_ranges(1, 10, range(0, 100, 10), range(5, 100, 10))
-    [(1, 6), (10, 11)]
+    [(1, 5)]
 
     >>> get_ranges(0, 10, range(0, 100, 10), range(5, 100, 10))
-    [(0, 6), (10, 11)]
+    [(0, 5)]
 
-    >>> get_ranges(50, 60, (10,),(100,))
-    [(50, 61)]
-
-    >>> get_ranges(50, 60, (10,),(100,))
-    [(50, 61)]
+    >>> get_ranges(50, 59, (50, 61), (60, 70))
+    [(50, 59)]
 
     >>> get_ranges(1562576, 1562675,
     ... (1560665, 1560925, 1562029, 1562216, 1562453, 1562675, 1563052, 1563398, 1563652, 1563868, 1564512, 1564764, 1565018, 1565671),
     ... (1560808, 1561033, 1562134, 1562379, 1562587, 1562824, 1563209, 1563559, 1563779, 1564102, 1564691, 1564946, 1565084, 1565985))
-    [(1562576, 1562588), (1562675, 1562676)]
+    [(1562576, 1562587)]
     """
+    # is this the correct result to expect for get_ranges?  maybe I should provide a region that is exon start-1, exon start if there is a variant at the beginning
     assert last >= exon_starts[0]
     assert vstart <= exon_ends[-1]
     assert vstart >= last, (vstart, last, exon_starts)
@@ -238,7 +245,7 @@ def get_cdna_start_end(cdna_start, v):
 
 def isfunctional(csq):
     return any(c in ('stop_gained', 'stop_lost', 'start_lost', 'initiator_codon_variant', 'rare_amino_acid_variant',
-                     'missense_variant', 'protein_altering_variant', 'frameshift_variant')
+                     'missense_variant', 'protein_altering_variant', 'frameshift_variant', 'inframe_insertion', 'inframe_deletion')
                for c in csq['Consequence'].split('&'))
 
 
