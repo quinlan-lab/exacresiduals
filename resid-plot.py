@@ -18,7 +18,8 @@ csv.field_size_limit(14365000)
 import cPickle as pickle
 from cyvcf2 import VCF
 import utils as u
-X = {"CpG": []}
+from collections import defaultdict
+X = defaultdict(list)
 
 exac=VCF('data/ExAC.r0.3.sites.vep.vcf.gz')
 kcsq = exac["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
@@ -55,8 +56,10 @@ for i, d in enumerate(ts.reader(1)):
                     if synbool:
                         syn-=1; break
             synbool=False
-                
-    d['syn_density']=str(syn/float(d['n_bases']))+","+str(syn)+"/"+d['n_bases']; syn=0
+    if d['n_bases']>1:
+        d['syn_density']=str(syn/(float(d['n_bases'])-1)); syn=0; #+","+str(syn)+"/"+d['n_bases']; # -1 because we can't count the end coordinate, which is by default a variant
+    else:
+        d['syn_density']=0
                 
     genes.append((d['chrom'], str(d['start']), str(d['end']), d['gene'], d['transcript'], d['exon'], d['ranges'], d['syn_density']))
     coverage=[]
@@ -66,6 +69,7 @@ for i, d in enumerate(ts.reader(1)):
     if not coverage:
         coverage=[0]
     X['CpG'].append(float(d['cg_content']))
+    X['syn'].append(1-float(d['syn_density'])) # 1-syn if we want to use as a measure of constraint; syn as a measure of mutability
     ys.append(sum(coverage))
 
 X['intercept'] = np.ones(len(ys))
