@@ -61,6 +61,7 @@ for i, d in enumerate(ts.reader(1)):
     else:
         d['syn_density']=0
                 
+                
     genes.append((d['chrom'], str(d['start']), str(d['end']), d['gene'], d['transcript'], d['exon'], d['ranges'], d['syn_density']))
     coverage=[]
     for val in d['coverage'].split(","):
