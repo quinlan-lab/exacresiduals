@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 # ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/ExAC.r0.3.sites.vep.vcf.gz
-VCF_PATH = "data/ExAC.r0.3.sites.vt.vep.vcf.gz" #"toyexac.vcf.gz" #"data/gnomad.exomes.r2.0.1.sites.vcf.gz"
+VCF_PATH = "toyexac.vcf.gz" #"data/ExAC.r0.3.sites.vt.vep.vcf.gz" #"toyexac.vcf.gz" #"data/gnomad.exomes.r2.0.1.sites.vcf.gz"
 
 # ftp://ftp.ensembl.org/pub/release-75/gtf/homo_sapiens/Homo_sapiens.GRCh37.75.gtf.gz
 GTF_PATH = "data/Homo_sapiens.GRCh37.75.gtf.gz" #"toyexons.gtf.gz" #"data/Homo_sapiens.GRCh37.75.gtf.gz"
@@ -66,12 +66,14 @@ def merge_rows(rows):
     [{'vstart': 1, 'vend': 2, 'gene': 'ABC'}, {'vstart': 2, 'vend': 4, 'gene': 'ABC'}, {'vstart': 4, 'vend': 6, 'gene': 'ABC'}]
     >>> merge_rows([dict(gene='ABC', vstart=1, vend=2), dict(gene='Easy as', vstart=1, vend=4), dict(gene='123', vstart=1, vend=6)])
     [{'vstart': 1, 'vend': 2, 'gene': 'ABC'}, {'vstart': 1, 'vend': 4, 'gene': 'Easy as'}, {'vstart': 1, 'vend': 6, 'gene': '123'}]
+    >>> merge_rows([dict(gene='ABC', vstart=1, vend=2), dict(gene='ABC', vstart=1, vend=6), dict(gene='ABC', vstart=1, vend=4)])
+    [{'vstart': 1, 'vend': 6, 'gene': 'ABC'}]
     """
     new_rows = [rows[0]]
     for row in rows[1:]:
-        if new_rows[-1]['gene'] == row['gene'] and row['vstart'] < new_rows[-1]['vend']:
+        if new_rows[-1]['gene'] == row['gene'] and row['vstart'] < new_rows[-1]['vend'] and row['vend'] > new_rows[-1]['vend']:
             new_rows[-1]['vend'] = row['vend']
-        else:
+        elif new_rows[-1]['gene'] != row['gene'] or new_rows[-1]['vend'] <= row['vstart']:
             new_rows.append(row)
     return new_rows
 
@@ -147,11 +149,11 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             # istart and iend determine if we need to span exons.
 
             assert row['vstart'] <= exon_ends[-1], (row, exon_ends) # maybe use POS instead of vstart, so we can normalize and decompose?; should i check if end is less?
-            row['vstart']=row['vstart']+1 # vstart is bed format variant coordinate, still true
-            mranges = u.get_ranges(last, row['vstart'], exon_starts, exon_ends) #TODO: maybe use POS instead of vstart?
-            #print (mranges, 'mranges')
+            row['vstart']=row['vstart']+1 # vstart is bed format variant coordinate, still true maybe use POS instead of vstart?
+            mranges, last = u.get_ranges(last, row['vstart'], row['vend'], exon_starts, exon_ends)#TODO: fix get_ranges to do what split_ranges does, and land behind vend because it ends at vstart
 
-            for ranges in u.split_ranges(row['vstart'], row['vend'], mranges, splitter):
+            for ranges in u.split_ranges(row['vstart'], mranges, splitter):
+#                if row['vend']==150421561: print (row['vstart'],row['vend'],last)
 
                 row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
                 row['posns'] = list(it.chain.from_iterable([range(s+1, e+1) for s, e in ranges])) # since range is not inclusive at the end add +1, need to add +1 to start
@@ -191,7 +193,9 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 # we are re-using the dict for each loop so force a copy.
                 try:
                     if row['ranges']:
-                        last = int(row['ranges'].split('-')[-1]) #so we can start at where the last range ended
+                        endrange=int(row['ranges'].split('-')[-1])
+                        if last < endrange:
+                            last = endrange  #so we can start at where the last range ended
                         out.append(dict(row))
                 except KeyError:
                     pass
@@ -207,8 +211,8 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                     continue
             except IndexError:
                 pass 
-            mranges=u.get_ranges(last, exon_ends[-1], exon_starts, exon_ends)
-            for ranges in u.split_ranges(last, row['vend'], mranges, splitter): # TODO: don't use vend?
+            mranges, last = u.get_ranges(last, exon_ends[-1], row['vend'], exon_starts, exon_ends) #TODO: fix vend?
+            for ranges in u.split_ranges(last, mranges, splitter):
                 row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
                 row['posns'] = list(it.chain.from_iterable([range(s+1, e+1) for s, e in ranges])) #range is not inclusive at the end, need to add +1 to s
                 row['ranges'] = ["%d-%d" % (s, e) for s, e in ranges]

@@ -8,73 +8,73 @@ import toolshed as ts
 from interlap import InterLap, Interval as IntervalSet, reduce as ireduce
 import numpy as np
 
-def split_ranges(position, vend, ranges, splitters): # if range is in splitters, it is removed from potential constraint regions; import my version of interlap
+def split_ranges(position, ranges, splitters): # if range is in splitters, it is removed from potential constraint regions; import my version of interlap
     """
-    >>> split_ranges(1033, 1033, [(1018, 1034)], [(1022, 1034)])
+    >>> split_ranges(1033, [(1018, 1034)], [(1022, 1034)])
     [[(1018, 1022)]]
 
-    >>> split_ranges(1033, 1033, [(1018, 1034)], None)
+    >>> split_ranges(1033, [(1018, 1034)], None)
     [[(1018, 1034)]]
 
-    >>> split_ranges(1033, 1033, [(1018, 1034)], [(1022, 1024), (1028, 1034)])
+    >>> split_ranges(1033, [(1018, 1034)], [(1022, 1024), (1028, 1034)])
     [[(1018, 1022)], [(1024, 1028)]]
 
-    >>> split_ranges(57, 57, [(18, 24), (28, 35), (55, 60)], [(28, 35), (55, 57)])
+    >>> split_ranges(57, [(18, 24), (28, 35), (55, 60)], [(28, 35), (55, 57)])
     [[(18, 24)], [(57, 60)]]
 
-    >>> split_ranges(5, 5, [(12, 18), (22, 28), (32, 39), (42, 48)],
+    >>> split_ranges(5, [(12, 18), (22, 28), (32, 39), (42, 48)],
     ...                 [(12, 18), (22, 26),           (44, 48)])
     [[(26, 28)], [(32, 39)], [(42, 44)]]
 
-    >>> split_ranges(5, 5, [(11, 18), (22, 28), (32, 39), (42, 48)],
+    >>> split_ranges(5, [(11, 18), (22, 28), (32, 39), (42, 48)],
     ...                 [(12, 18), (22, 26),           (44, 48)])
     [[(11, 12)], [(26, 28)], [(32, 39)], [(42, 44)]]
     
-    >>> split_ranges(1020, 1030, [(1018, 1034)], None)
-    [[(1018, 1020)], [(1030, 1034)]]
+    >>> split_ranges(1020, [(1018, 1034)], None)
+    [[(1018, 1034)]]
 
-    >>> split_ranges(1020, 1030, [(1018, 1034)], [(1030, 1032)])
-    [[(1018, 1020)], [(1032, 1034)]]
+    >>> split_ranges(1020, [(1018, 1034)], [(1030, 1032)])
+    [[(1018, 1030)], [(1032, 1034)]]
     """
-    if vend > position:
-        ranges=[x._vals for x in IntervalSet(ranges).split([(position,vend)])]
-        if splitters is not None:
-            return [x._vals for x in IntervalSet([x[0] for x in ranges]).split(splitters)]
-        return ranges
+    #if vend > position:
+    #    ranges=[x._vals for x in IntervalSet(ranges).split([(position,vend)])]
+    #    if splitters is not None:
+    #        return [x._vals for x in IntervalSet([x[0] for x in ranges]).split(splitters)]
+    #    return ranges
     if splitters is None:
         return [ranges]
     return [x._vals for x in IntervalSet(ranges).split(splitters)]
 
-def get_ranges(last, vstart, exon_starts, exon_ends):
+def get_ranges(last, vstart, vend, exon_starts, exon_ends): # TODO: need to incorporate vend here, not in split ranges 
     """
-    >>> get_ranges(61018, 62029, (
+    >>> get_ranges(61018, 62029, 62029, (
     ... 60174, 60370, 60665, 60925, 62029, 62216, 62453,
     ... 62675, 63052, 63398, 63652, 63868, 64512, 64764,
     ... 65018, 65671), (60281,
     ... 60565, 60808, 61033, 62134, 62379, 62587, 62824,
     ... 63209, 63559, 63779, 64102, 64691, 64946, 65084,
     ... 65985))
-    [(61018, 61033)]
+    ([(61018, 61033)], 61018)
 
-    >>> get_ranges(61018, 62023, (60925, 62000), (61033, 62025))
-    [(61018, 61033), (62000, 62023)]
+    >>> get_ranges(61018, 62023, 62030, (60925, 62000), (61033, 62040))
+    ([(61018, 61033), (62000, 62023)], 62030)
 
-    >>> get_ranges(56, 95, range(0, 1000, 10), range(5, 1000, 10))
-    [(60, 65), (70, 75), (80, 85), (90, 95)]
+    >>> get_ranges(56, 95, 95, range(0, 1000, 10), range(5, 1000, 10))
+    ([(60, 65), (70, 75), (80, 85), (90, 95)], 60)
 
-    >>> get_ranges(1, 10, range(0, 100, 10), range(5, 100, 10))
-    [(1, 5)]
+    >>> get_ranges(1, 10, 10, range(0, 100, 10), range(5, 100, 10))
+    ([(1, 5)], 1)
 
-    >>> get_ranges(0, 10, range(0, 100, 10), range(5, 100, 10))
-    [(0, 5)]
+    >>> get_ranges(0, 10, 10, range(0, 100, 10), range(5, 100, 10))
+    ([(0, 5)], 0)
 
-    >>> get_ranges(50, 59, (50, 61), (60, 70))
-    [(50, 59)]
+    >>> get_ranges(50, 59, 59, (50, 61), (60, 70))
+    ([(50, 59)], 50)
 
-    >>> get_ranges(1562576, 1562675,
+    >>> get_ranges(1562576, 1562675, 1562675,
     ... (1560665, 1560925, 1562029, 1562216, 1562453, 1562675, 1563052, 1563398, 1563652, 1563868, 1564512, 1564764, 1565018, 1565671),
     ... (1560808, 1561033, 1562134, 1562379, 1562587, 1562824, 1563209, 1563559, 1563779, 1564102, 1564691, 1564946, 1565084, 1565985))
-    [(1562576, 1562587)]
+    ([(1562576, 1562587)], 1562576)
     """
     # is this the correct result to expect for get_ranges?  maybe I should provide a region that is exon start-1, exon start if there is a variant at the beginning
     assert last >= exon_starts[0]
@@ -94,16 +94,16 @@ def get_ranges(last, vstart, exon_starts, exon_ends):
     start = last
     ranges = []
     while start < vstart and istart < len(exon_starts): #<= lets it capture 0 length regions, so I removed it and the +1 allows it to make 1 bp regions when two variants are right next to one another
-      #  if exon_ends[istart]==vstart+1: #variants are already included at the end of the region, so in the case where a variant is at the end of an exon, it's irrelevant, and it will make an incorrect extra 1 bp region without this statement
-      #      break
         ranges.append((start, exon_ends[istart])) #removed +1 from exon_ends[istart] + 1, because IntervalSet is already in 0-based half-open format
         istart += 1
         if ranges[-1][1] >= vstart: # equal to is now possible, since we are including variant start+1 and ranges are in 0-based half-open
+            if vstart < vend:
+                last = vend
             ranges[-1] = (ranges[-1][0], vstart) #removed +1 from vstart + 1, because IntervalSet is already in 0-based half-open format
             break
         start = exon_starts[istart]
 
-    return ranges
+    return ranges, last
 
 import doctest
 res = doctest.testmod()
@@ -214,7 +214,7 @@ def read_exons(gtf, chrom, coverage_array, *args):
         for s, e in split_iv.find((start - 1, end)):
             splitters[key].add([(s, e)])
 
-        genes[key].add([(start-1, end)]) # converts GTF exon coordinates to BED format
+        genes[key].add([(start-1, end)]) # converts GTF exon coordinates to BED format (subtracts 1 from exon start)
     # sort by start so we can do binary search.
     genes = dict((k, sorted(v._vals)) for k, v in genes.iteritems())
     #ends = dict((k, sorted(v)) for k, v in ends.iteritems())
@@ -247,10 +247,10 @@ def get_cdna_start_end(cdna_start, v):
     return cdna_start, cdna_end
 
 def isfunctional(csq):
-    return any(c in ('stop_gained', 'stop_lost', 'start_lost', 'initiator_codon_variant', 'rare_amino_acid_variant',
-                     'missense_variant', 'protein_altering_variant', 'frameshift_variant', 'inframe_insertion', 'inframe_deletion')
-               for c in csq['Consequence'].split('&'))
-
+    if any(c in csq['Consequence'] for c in ('stop_gained', 'stop_lost', 'start_lost', 'initiator_codon_variant', 'rare_amino_acid_variant', 'missense_variant', 'protein_altering_variant', 'frameshift_variant', 'inframe_insertion', 'inframe_deletion')) or (('splice_donor_variant' in csq['Consequence'] or 'splice_acceptor_variant' in csq['Consequence']) and 'coding_sequence_variant' in csq['Consequence']):
+        return True
+    else:
+        return False
 
 def cg_content(seq):
     if len(seq) == 0: return 0.0
