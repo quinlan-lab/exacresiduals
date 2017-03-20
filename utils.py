@@ -56,6 +56,9 @@ def get_ranges(last, vstart, vend, exon_starts, exon_ends): # TODO: need to inco
     ... 65985))
     ([(61018, 61033)], 61018)
 
+    >>> get_ranges(61018, 61990, 62001, (60925, 62000), (61033, 62040))
+    ([(61018, 61033)], 62001)
+
     >>> get_ranges(61018, 62023, 62030, (60925, 62000), (61033, 62040))
     ([(61018, 61033), (62000, 62023)], 62030)
 
@@ -92,13 +95,14 @@ def get_ranges(last, vstart, vend, exon_starts, exon_ends): # TODO: need to inco
         if istart < len(exon_starts): # in case last and exon ends are equal, it will loop through again, but I want that last loop
             last = exon_starts[istart]
     start = last
+
+    if vstart < vend: # moved here because there are variants in UTRs that do not exist in coding exon space
+        last = vend
     ranges = []
     while start < vstart and istart < len(exon_starts): #<= lets it capture 0 length regions, so I removed it and the +1 allows it to make 1 bp regions when two variants are right next to one another
         ranges.append((start, exon_ends[istart])) #removed +1 from exon_ends[istart] + 1, because IntervalSet is already in 0-based half-open format
         istart += 1
         if ranges[-1][1] >= vstart: # equal to is now possible, since we are including variant start+1 and ranges are in 0-based half-open
-            if vstart < vend:
-                last = vend
             ranges[-1] = (ranges[-1][0], vstart) #removed +1 from vstart + 1, because IntervalSet is already in 0-based half-open format
             break
         start = exon_starts[istart]

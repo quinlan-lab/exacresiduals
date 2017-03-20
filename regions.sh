@@ -18,7 +18,7 @@ python weightpercentile.py /tmp/residsort.txt > results/$date/weightedresiduals.
 #python exac-regions.py -s > results/$date/exac-regions-nosingletons.txt
 #python resid-plot.py results/$date/exac-regions-nosingletons.txt > results/$date/resids-nosingletons.txt
 #cat <(head -1 results/$date/resids-nosingletons.txt) <(sed '1d' results/$date/resids-nosingletons.txt | sort -k12,12nr) > /tmp/residsort-nosingletons.txt
-#python weightpercentile.py /tmp/residsort.txt > results/$date/weightedresiduals-nosingletons.txt
+#python weightpercentile.py /tmp/residsort-nosingletons.txt > results/$date/weightedresiduals-nosingletons.txt
 #getting unfiltered regions, purely exonic (comment out coverage, self-chain, and seg dup filters in utils.py)
 #python exac-regions.py > results/$date/unfilteredregions.txt
 #python resid-plot.py results/$date/unfilteredregions.txt > results/$date/unfilteredresiduals.txt
