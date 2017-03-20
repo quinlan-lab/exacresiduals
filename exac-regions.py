@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 # ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/ExAC.r0.3.sites.vep.vcf.gz
-VCF_PATH = "toyexac.vcf.gz" #"data/ExAC.r0.3.sites.vt.vep.vcf.gz" #"toyexac.vcf.gz" #"data/gnomad.exomes.r2.0.1.sites.vcf.gz"
+VCF_PATH = "data/ExAC.r0.3.sites.vt.vep.vcf.gz" #"toyexac.vcf.gz" #"data/gnomad.exomes.r2.0.1.sites.vcf.gz"
 
 # ftp://ftp.ensembl.org/pub/release-75/gtf/homo_sapiens/Homo_sapiens.GRCh37.75.gtf.gz
 GTF_PATH = "data/Homo_sapiens.GRCh37.75.gtf.gz" #"toyexons.gtf.gz" #"data/Homo_sapiens.GRCh37.75.gtf.gz"
@@ -120,7 +120,11 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             if csq['Feature'] == '' or csq['EXON'] == '' : continue #or csq['cDNA_position'] == '': continue
             if not u.isfunctional(csq): continue
 
-            cdna_start, cdna_end = u.get_cdna_start_end(csq['cDNA_position'], v)
+            if csq['cDNA_position']:
+                cdna_start, cdna_end = u.get_cdna_start_end(csq['cDNA_position'], v)
+            else:
+                #print(v,file=sys.stderr)
+                cdna_start, cdna_end = 'na','na' # apparently, sometimes ENSEMBL doesn't annotate splice_donor_variant&coding_sequence_variant combinations with cdna coords
 
             rows.append(dict(chrom=v.CHROM, vstart=v.start, vend=v.end, af=af,
                 functional=int(u.isfunctional(csq)),
@@ -150,6 +154,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
 
             assert row['vstart'] <= exon_ends[-1], (row, exon_ends) # maybe use POS instead of vstart, so we can normalize and decompose?; should i check if end is less?
             row['vstart']=row['vstart']+1 # vstart is bed format variant coordinate, still true maybe use POS instead of vstart?
+            if last > row['vstart']: continue # if a deletion covers the space of multiple variants, those variants don't matter 
             mranges, last = u.get_ranges(last, row['vstart'], row['vend'], exon_starts, exon_ends)#TODO: fix get_ranges to do what split_ranges does, and land behind vend because it ends at vstart
 
             for ranges in u.split_ranges(row['vstart'], mranges, splitter):
@@ -211,6 +216,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                     continue
             except IndexError:
                 pass 
+            if row['vend'] > exon_ends[-1]: continue # deletion could enter an intron/UTR
             mranges, last = u.get_ranges(last, exon_ends[-1], row['vend'], exon_starts, exon_ends) #TODO: fix vend?
             for ranges in u.split_ranges(last, mranges, splitter):
                 row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)

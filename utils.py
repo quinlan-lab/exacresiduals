@@ -79,7 +79,7 @@ def get_ranges(last, vstart, vend, exon_starts, exon_ends): # TODO: need to inco
     # is this the correct result to expect for get_ranges?  maybe I should provide a region that is exon start-1, exon start if there is a variant at the beginning
     assert last >= exon_starts[0]
     assert vstart <= exon_ends[-1]
-    assert vstart >= last, (vstart, last, exon_starts)
+    #assert vstart >= last, (vstart, last, exon_starts) # deletion can overlap UTR/intron, but this is controlled for in exac-regions.py
     assert all(s < e for s, e in zip(exon_starts, exon_ends))
 
     istart = bisect_left(exon_starts, last) - 1
@@ -247,7 +247,8 @@ def get_cdna_start_end(cdna_start, v):
     return cdna_start, cdna_end
 
 def isfunctional(csq):
-    if any(c in csq['Consequence'] for c in ('stop_gained', 'stop_lost', 'start_lost', 'initiator_codon_variant', 'rare_amino_acid_variant', 'missense_variant', 'protein_altering_variant', 'frameshift_variant', 'inframe_insertion', 'inframe_deletion')) or (('splice_donor_variant' in csq['Consequence'] or 'splice_acceptor_variant' in csq['Consequence']) and 'coding_sequence_variant' in csq['Consequence']):
+    if any(c in csq['Consequence'] for c in ('stop_gained', 'stop_lost', 'start_lost', 'initiator_codon_variant', 'rare_amino_acid_variant', 'missense_variant', 'protein_altering_variant', 'frameshift_variant', 'inframe_insertion', 'inframe_deletion')) \
+    or (('splice_donor_variant' in csq['Consequence'] or 'splice_acceptor_variant' in csq['Consequence'] or '5_prime_UTR_variant' in csq['Consequence'] or '3_prime_UTR_variant' in csq['Consequence']) and 'coding_sequence_variant' in csq['Consequence']):
         return True
     else:
         return False
