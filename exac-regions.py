@@ -31,9 +31,9 @@ from pyfaidx import Fasta
 import argparse
 
 parser=argparse.ArgumentParser()
-parser.add_argument("-s", "--singletons", help="if you do NOT want singletons", action="store_false", default=True)
+parser.add_argument("-n", "--nosingletons", help="if you do NOT want singletons", action="store_true", default=False)
 args=parser.parse_args()
-singletons=args.singletons
+nosingletons=args.nosingletons
 
 zip = it.izip
 
@@ -112,7 +112,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             ac = max(ac)
         af = ac / float(info['AN_Adj'] or 1)
         if ac == 1: #self-explanatory, but filters out singletons
-            if not singletons: continue
+            if nosingletons: continue
         # NOTE: not requiring canonical or requiring the csq to match the
         # particular alt that we chose.
         for csq in (c for c in csqs if c['BIOTYPE'] == 'protein_coding'): # getting duplicate rows because of this, wastes memory and potentially compute time, could remove and replace with just if isfunctional, add to rows then move on?

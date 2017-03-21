@@ -25,12 +25,12 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-c", "--cpg", help="cpg added to regression model", action="store_true", default=False)
 parser.add_argument("-s", "--synonymous", help="synonymous added to regression model", action="store_true", default=False)
 parser.add_argument("-f", "--file", help="regions input file, from exac-regions.py", required=True)
-parser.add_argument("-t", "--singletons", help="if you do NOT want singletons", action="store_false", default=True)
+parser.add_argument("-n", "--nosingletons", help="if you do NOT want singletons", action="store_true", default=False)
 
 args=parser.parse_args()
 cpg=args.cpg
 synonymous=args.synonymous
-singletons=args.singletons
+nosingletons=args.nosingletons
 rfile=args.file
 
 exac=VCF('data/ExAC.r0.3.sites.vt.vep.vcf.gz')
@@ -52,7 +52,7 @@ for i, d in enumerate(ts.reader(rfile)):
         r0=str(int(pair[0])+1); r1=str(int(pair[1])-1);
         if int(r0)-int(r1)==1: continue # don't need syn_count for a region of length 1 (0 bp region)
         for v in exac(d['chrom']+':'+r0+'-'+r1):
-            if v.INFO['AC_Adj']==1 and not singletons: continue
+            if v.INFO['AC_Adj']==1 and nosingletons: continue
             if prevvar is not None and v.start+v.end==prevvar: continue
             if not (v.FILTER is None or v.FILTER == "PASS"): continue
             info = v.INFO
