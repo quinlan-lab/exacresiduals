@@ -20,6 +20,11 @@ from cyvcf2 import VCF
 import utils as u
 from collections import defaultdict
 X = defaultdict(list)
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-c", "--cpg", help="cpg added to regression model", action="store_true", default=False)
+parser.add_argument("-s", "--synonymous", help="synonymous added to regression model", action="store_true", default=False)
 
 exac=VCF('data/ExAC.r0.3.sites.vt.vep.vcf.gz')
 kcsq = exac["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
@@ -71,8 +76,10 @@ for i, d in enumerate(ts.reader(1)):
             coverage.append(float(val))
     if not coverage:
         coverage=[0]
-    X['CpG'].append(float(d['cg_content']))
-    X['syn'].append(1-float(d['syn_density'])) # 1-syn if we want to use as a measure of constraint; syn as a measure of mutability
+    if cpg:
+        X['CpG'].append(float(d['cg_content']))
+    if synonymous:
+        X['syn'].append(1-float(d['syn_density'])) # 1-syn if we want to use as a measure of constraint; syn as a measure of mutability
     ys.append(sum(coverage))
 
 X['intercept'] = np.ones(len(ys))
