@@ -86,7 +86,7 @@ for i, d in enumerate(ts.reader(rfile)):
     if cpg:
         X['CpG'].append(float(d['cg_content']))
     if synonymous:
-        X['syn'].append(1-float(d['syn_density'])) # 1-syn if we want to use as a measure of constraint; syn as a measure of mutability
+        X['syn'].append(float(d['syn_density'])) # 1-syn if we want to use as a measure of constraint; syn as a measure of mutability
     ys.append(sum(coverage))
 
 X['intercept'] = np.ones(len(ys))
