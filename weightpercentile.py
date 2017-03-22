@@ -12,11 +12,11 @@ print line
 for d in ts.reader(sys.argv[1], header='ordered'):
     regionlength += int(d['end'])-int(d['start'])
     try:
-        if d['cov_cpg_resid_pctile']!=opct:
+        if d['resid_pctile']!=opct:
             pct-=regionlength/totlen*100
             regionlength=0
     except NameError:
-        opct=d['cov_cpg_resid_pctile']
-    opct=d['cov_cpg_resid_pctile']
+        opct=d['resid_pctile']
+    opct=d['resid_pctile']
     line = "\t".join([i for i in d.values()]) + "\t" + str(pct)
     print line

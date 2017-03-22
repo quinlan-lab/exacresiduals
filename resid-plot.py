@@ -110,7 +110,7 @@ resid_pctile = 100.0 * np.sort(resid).searchsorted(resid) / float(len(resid))
 
 assert len(genes) == len(ys) == len(resid)
 
-print "chrom\tstart\tend\tgene\ttranscript\texon\tranges\tsyn_density\tcov_score\tcpg\tcov_cpg_resid\tcov_cpg_resid_pctile"
+print "chrom\tstart\tend\tgene\ttranscript\texon\tranges\tsyn_density\tcpg\tcov_score\tresid\tresid_pctile"
 for i, row in enumerate(genes):
     vals = ["%.3f" % ys[i], "%.3f" % resid[i], "%.9f" % resid_pctile[i]]
     #if not "," in row[-1]:
