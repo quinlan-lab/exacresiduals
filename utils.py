@@ -45,7 +45,7 @@ def split_ranges(position, ranges, splitters): # if range is in splitters, it is
         return [ranges]
     return [x._vals for x in IntervalSet(ranges).split(splitters)]
 
-def get_ranges(last, vstart, vend, exon_starts, exon_ends): # TODO: need to incorporate vend here, not in split ranges 
+def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # TODO: need to incorporate vend here, not in split ranges 
     """
     >>> get_ranges(61018, 62029, 62029, (
     ... 60174, 60370, 60665, 60925, 62029, 62216, 62453,
@@ -85,7 +85,9 @@ def get_ranges(last, vstart, vend, exon_starts, exon_ends): # TODO: need to inco
     ... (1560808, 1561033, 1562134, 1562379, 1562587, 1562824, 1563209, 1563559, 1563779, 1564102, 1564691, 1564946, 1565084, 1565985))
     ([(1562576, 1562587)], 1562576)
     """
-    # is this the correct result to expect for get_ranges?  maybe I should provide a region that is exon start-1, exon start if there is a variant at the beginning
+
+    f4=open('deletioncut.txt','a') #code removed by deletions
+ 
     assert last >= exon_starts[0]
     assert vstart <= exon_ends[-1]
     #assert vstart >= last, (vstart, last, exon_starts) # deletion can overlap UTR/intron, but this is controlled for in exac-regions.py
@@ -104,6 +106,7 @@ def get_ranges(last, vstart, vend, exon_starts, exon_ends): # TODO: need to inco
 
     if vstart < vend: # moved here because there are variants in UTRs that do not exist in coding exon space
         last = vend
+        f4.write("\t".join(map(str,[chrom,vstart,last]))+"\n") #what is removed by deletions?
     ranges = []
     while start < vstart and istart < len(exon_starts): #<= lets it capture 0 length regions, so I removed it and the +1 allows it to make 1 bp regions when two variants are right next to one another
         ranges.append((start, exon_ends[istart])) #removed +1 from exon_ends[istart] + 1, because IntervalSet is already in 0-based half-open format

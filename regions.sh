@@ -1,5 +1,6 @@
 ## folder made by date, in case we make major changes to exac-regions.py or resid-plot.py ##
 date=2017_03_16 # default date value
+rm coveragecut.txt deletioncut.txt segdupscut.txt selfchaincut.txt
 while getopts ":d:scnf:" opt; do
     case $opt in
         d)
