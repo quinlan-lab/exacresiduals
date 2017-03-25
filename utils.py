@@ -260,11 +260,8 @@ def get_cdna_start_end(cdna_start, v):
     return cdna_start, cdna_end
 
 def isfunctional(csq):
-    if any(c in csq['Consequence'] for c in ('stop_gained', 'stop_lost', 'start_lost', 'initiator_codon_variant', 'rare_amino_acid_variant', 'missense_variant', 'protein_altering_variant', 'frameshift_variant', 'inframe_insertion', 'inframe_deletion')) \
-    or (('splice_donor_variant' in csq['Consequence'] or 'splice_acceptor_variant' in csq['Consequence'] or '5_prime_UTR_variant' in csq['Consequence'] or '3_prime_UTR_variant' in csq['Consequence']) and 'coding_sequence_variant' in csq['Consequence']):
-        return True
-    else:
-        return False
+    return any(c in csq['Consequence'] for c in ('stop_gained', 'stop_lost', 'start_lost', 'initiator_codon_variant', 'rare_amino_acid_variant', 'missense_variant', 'protein_altering_variant', 'frameshift_variant', 'inframe_insertion', 'inframe_deletion')) \
+    or (('splice_donor_variant' in csq['Consequence'] or 'splice_acceptor_variant' in csq['Consequence'] or '5_prime_UTR_variant' in csq['Consequence'] or '3_prime_UTR_variant' in csq['Consequence']) and 'coding_sequence_variant' in csq['Consequence'])
 
 def cg_content(seq):
     if len(seq) == 0: return 0.0
