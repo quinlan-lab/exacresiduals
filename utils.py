@@ -56,6 +56,21 @@ def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # TODO: nee
     ... 65985))
     ([(61018, 61033)], 61018)
 
+    >>> get_ranges(617350, 617346, 617369, (617350, 617350), (617400, 617400))
+    ([], 617369)
+
+    >>> get_ranges(0, 3, 3, (0, 20), (10, 30))
+    ([(0, 2), (2, 3)], 3)
+
+    >>> get_ranges(3, 6, 6, (0, 20), (10, 30)) 
+    ([(3, 5), (5, 6)], 6)
+
+    >>> get_ranges(6, 7, 7, (0, 20), (10, 30))
+    ([(6, 7)], 7)
+
+    >>> get_ranges(7, 9, 9, (0, 20), (10, 30)) # needs varflag for second region only
+    ([(7, 8), (8, 9), 9)
+
     >>> get_ranges(38865400, 38865404, 38865425, (38865242, 38865242), (38865601, 38865601))
     ([(38865400, 38865404)], 38865425)
     
@@ -81,6 +96,83 @@ def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # TODO: nee
     ([(50, 59)], 50)
 
     >>> get_ranges(1562576, 1562675, 1562675,
+    ... (1560665, 1560925, 1562029, 1562216, 1562453, 1562675, 1563052, 1563398, 1563652, 1563868, 1564512, 1564764, 1565018, 1565671),
+    ... (1560808, 1561033, 1562134, 1562379, 1562587, 1562824, 1563209, 1563559, 1563779, 1564102, 1564691, 1564946, 1565084, 1565985))
+    ([(1562576, 1562587)], 1562576)
+    """
+
+    f4=open('deletioncut.txt','a') #code removed by deletions
+ 
+    assert last >= exon_starts[0]
+    assert vstart <= exon_ends[-1]
+    assert all(s < e for s, e in zip(exon_starts, exon_ends))
+
+    istart = bisect_left(exon_starts, last) - 1
+    if istart == -1: istart = 0
+    [(0, 6), (10, 11)]
+
+    assert exon_starts[istart] <= last, (exon_starts[istart], last, istart)
+    if exon_ends[istart] <= last:
+        istart += 1
+        if istart < len(exon_starts): # in case last and exon ends are equal, it will loop through again, but I want that last loop
+            last = exon_starts[istart]
+    start = last
+
+    if vstart < vend: # moved here because there are variants in UTRs that do not exist in coding exon space
+        last = vend
+        f4.write("\t".join(map(str,[chrom,vstart,last]))+"\n") #what is removed by deletions?
+    ranges = []
+    while start < vstart and istart < len(exon_starts): #<= lets it capture 0 length regions, so I removed it and the +1 allows it to make 1 bp regions when two variants are right next to one another
+        ranges.append((start, exon_ends[istart])) #removed +1 from exon_ends[istart] + 1, because IntervalSet is already in 0-based half-open format
+        istart += 1
+        if ranges[-1][1] >= vstart: # equal to is now possible, since we are including variant start+1 and ranges are in 0-based half-open
+            ranges[-1] = (ranges[-1][0], vstart) #removed +1 from vstart + 1, because IntervalSet is already in 0-based half-open format
+            if (vstart - ranges[-1][0] == 1):
+                varflag=1 # this indicates the region contains the variant, therefore should be considered 0 bp, get a 0 coverage and a 0 cpg score
+            break
+        start = exon_starts[istart]
+
+    return ranges, last
+
+def get_ranges_w_variant(last, vstart, vend, exon_starts, exon_ends, chrom=1): # TODO: need to incorporate vend here, not in split ranges 
+    """
+    >>> get_ranges_w_variant(61018, 62029, 62029, (
+    ... 60174, 60370, 60665, 60925, 62029, 62216, 62453,
+    ... 62675, 63052, 63398, 63652, 63868, 64512, 64764,
+    ... 65018, 65671), (60281,
+    ... 60565, 60808, 61033, 62134, 62379, 62587, 62824,
+    ... 63209, 63559, 63779, 64102, 64691, 64946, 65084,
+    ... 65985))
+    ([(61018, 61033)], 61018)
+
+    >>> get_ranges_w_variant(38865400, 38865404, 38865425, (38865242, 38865242), (38865601, 38865601))
+    ([(38865400, 38865404)], 38865425)
+    
+    >>> get_ranges_w_variant(38865405, 38865404, 38865425, (38865242, 38865242), (38865601, 38865601))
+    ([], 38865425)
+
+    >>> get_ranges_w_variant(617350, 617346, 617369, (617350, 617350), (617400, 617400))
+    ([], 617369)
+
+    >>> get_ranges_w_variant(61018, 61990, 62001, (60925, 62000), (61033, 62040))
+    ([(61018, 61033)], 62001)
+
+    >>> get_ranges_w_variant(61018, 62023, 62030, (60925, 62000), (61033, 62040))
+    ([(61018, 61033), (62000, 62023)], 62030)
+
+    >>> get_ranges_w_variant(56, 95, 95, range(0, 1000, 10), range(5, 1000, 10))
+    ([(60, 65), (70, 75), (80, 85), (90, 95)], 60)
+
+    >>> get_ranges_w_variant(1, 10, 10, range(0, 100, 10), range(5, 100, 10))
+    ([(1, 5)], 1)
+
+    >>> get_ranges_w_variant(0, 10, 10, range(0, 100, 10), range(5, 100, 10))
+    ([(0, 5)], 0)
+
+    >>> get_ranges_w_variant(50, 59, 59, (50, 61), (60, 70))
+    ([(50, 59)], 50)
+
+    >>> get_ranges_w_variant(1562576, 1562675, 1562675,
     ... (1560665, 1560925, 1562029, 1562216, 1562453, 1562675, 1563052, 1563398, 1563652, 1563868, 1564512, 1564764, 1565018, 1565671),
     ... (1560808, 1561033, 1562134, 1562379, 1562587, 1562824, 1563209, 1563559, 1563779, 1564102, 1564691, 1564946, 1565084, 1565985))
     ([(1562576, 1562587)], 1562576)
