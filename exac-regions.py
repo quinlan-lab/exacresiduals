@@ -155,7 +155,8 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             assert row['vstart'] <= exon_ends[-1], (row, exon_ends) # maybe use POS instead of vstart, so we can normalize and decompose?; should i check if end is less?
             row['vstart']=row['vstart']+1 # vstart is bed format variant coordinate, still true maybe use POS instead of vstart?
             mranges, last, varflag = u.get_ranges(last, row['vstart'], row['vend'], exon_starts, exon_ends, row['chrom'])#TODO: fix get_ranges to do what split_ranges does, and land behind vend because it ends at vstart
-
+            
+            ranges, vf = u.split_ranges(mranges, splitter, varflag)
             for ranges in u.split_ranges(mranges, splitter, varflag):
 
                 row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
