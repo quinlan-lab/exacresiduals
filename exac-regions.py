@@ -154,14 +154,14 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
 
             assert row['vstart'] <= exon_ends[-1], (row, exon_ends) # maybe use POS instead of vstart, so we can normalize and decompose?; should i check if end is less?
             row['vstart']=row['vstart']+1 # vstart is bed format variant coordinate, still true maybe use POS instead of vstart?
-            mranges, last = u.get_ranges(last, row['vstart'], row['vend'], exon_starts, exon_ends, row['chrom'])#TODO: fix get_ranges to do what split_ranges does, and land behind vend because it ends at vstart
+            mranges, last, varflag = u.get_ranges(last, row['vstart'], row['vend'], exon_starts, exon_ends, row['chrom'])#TODO: fix get_ranges to do what split_ranges does, and land behind vend because it ends at vstart
 
-            for ranges in u.split_ranges(row['vstart'], mranges, splitter):
-#                if row['vend']==150421561: print (row['vstart'],row['vend'],last)
+            for ranges in u.split_ranges(mranges, splitter, varflag):
 
                 row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
                 row['posns'] = list(it.chain.from_iterable([range(s+1, e+1) for s, e in ranges])) # since range is not inclusive at the end add +1, need to add +1 to start
                 row['ranges'] = ["%d-%d" % (s, e) for s, e in ranges]
+                row['varflag'] = ",".join(vf)
                 #print (row)
                 #print (last,row['vstart'], "last n' vstart")
                 #print (ranges, row['ranges'])
@@ -215,11 +215,12 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                     continue
             except IndexError:
                 pass 
-            mranges, last = u.get_ranges(last, exon_ends[-1], row['vend'], exon_starts, exon_ends, row['chrom']) #TODO: fix vend?
-            for ranges in u.split_ranges(last, mranges, splitter):
+            mranges, last, varflag = u.get_ranges(last, exon_ends[-1], row['vend'], exon_starts, exon_ends, row['chrom']) #TODO: fix vend?
+            for ranges in u.split_ranges(mranges, splitter, varflag):
                 row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
                 row['posns'] = list(it.chain.from_iterable([range(s+1, e+1) for s, e in ranges])) #range is not inclusive at the end, need to add +1 to s
                 row['ranges'] = ["%d-%d" % (s, e) for s, e in ranges]
+                row['varflag'] = ",".join(vf)
                 #print (row)
                 #print (last,row['vstart'], "last n' vstart")
                 #print (ranges, row['ranges'])
