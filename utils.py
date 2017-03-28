@@ -58,18 +58,21 @@ def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # TODO: nee
 
     >>> get_ranges(617350, 617346, 617369, (617350, 617350), (617400, 617400))
     ([], 617369)
+    
+    >>> get_ranges(0, 1, 1, (0, 20), (10, 30)) # needs varflag
+    ([(0, 1)], 0)
 
-    >>> get_ranges(0, 3, 3, (0, 20), (10, 30))
-    ([(0, 2), (2, 3)], 3)
+    >>> get_ranges(0, 3, 3, (0, 20), (10, 30)) # second region needs varflag
+    ([(0, 2), (2, 3)], 0)
 
-    >>> get_ranges(3, 6, 6, (0, 20), (10, 30)) 
-    ([(3, 5), (5, 6)], 6)
+    >>> get_ranges(3, 6, 6, (0, 20), (10, 30)) # second region needs varflag
+    ([(3, 5), (5, 6)], 3)
 
-    >>> get_ranges(6, 7, 7, (0, 20), (10, 30))
-    ([(6, 7)], 7)
+    >>> get_ranges(6, 7, 7, (0, 20), (10, 30)) # needs varflag
+    ([(6, 7)], 6)
 
     >>> get_ranges(7, 9, 9, (0, 20), (10, 30)) # needs varflag for second region only
-    ([(7, 8), (8, 9), 9)
+    ([(7, 8), (8, 9), 7)
 
     >>> get_ranges(38865400, 38865404, 38865425, (38865242, 38865242), (38865601, 38865601))
     ([(38865400, 38865404)], 38865425)
@@ -143,42 +146,44 @@ def get_ranges_w_variant(last, vstart, vend, exon_starts, exon_ends, chrom=1): #
     ... 60565, 60808, 61033, 62134, 62379, 62587, 62824,
     ... 63209, 63559, 63779, 64102, 64691, 64946, 65084,
     ... 65985))
-    ([(61018, 61033)], 61018)
+    ([(61018, 61033)], 61018, ['VARFALSE'])
 
     >>> get_ranges_w_variant(38865400, 38865404, 38865425, (38865242, 38865242), (38865601, 38865601))
-    ([(38865400, 38865404)], 38865425)
+    ([(38865400, 38865404)], 38865425, ['VARTRUE'])
     
     >>> get_ranges_w_variant(38865405, 38865404, 38865425, (38865242, 38865242), (38865601, 38865601))
-    ([], 38865425)
+    ([], 38865425, [])
 
     >>> get_ranges_w_variant(617350, 617346, 617369, (617350, 617350), (617400, 617400))
-    ([], 617369)
+    ([], 617369, [])
 
     >>> get_ranges_w_variant(61018, 61990, 62001, (60925, 62000), (61033, 62040))
-    ([(61018, 61033)], 62001)
+    ([(61018, 61033)], 62001, ['VARFALSE'])
 
-    >>> get_ranges_w_variant(61018, 62023, 62030, (60925, 62000), (61033, 62040))
-    ([(61018, 61033), (62000, 62023)], 62030)
+    >>> get_ranges_w_variant(61018, 62023, 62030, (60925, 62000), (61033, 62040)) #varflag for last one only
+    ([(61018, 61033), (62000, 62023)], 62030, ['VARFALSE', 'VARTRUE'])
 
-    >>> get_ranges_w_variant(56, 95, 95, range(0, 1000, 10), range(5, 1000, 10))
-    ([(60, 65), (70, 75), (80, 85), (90, 95)], 60)
+    >>> get_ranges_w_variant(56, 95, 95, range(0, 1000, 10), range(5, 1000, 10)) #varflag for last one only
+    ([(60, 65), (70, 75), (80, 85), (90, 95)], 60, ['VARFALSE', 'VARFALSE', 'VARFALSE', 'VARTRUE'])
 
     >>> get_ranges_w_variant(1, 10, 10, range(0, 100, 10), range(5, 100, 10))
-    ([(1, 5)], 1)
+    ([(1, 5)], 1, ['VARFALSE'])
 
     >>> get_ranges_w_variant(0, 10, 10, range(0, 100, 10), range(5, 100, 10))
-    ([(0, 5)], 0)
+    ([(0, 5)], 0, ['VARFALSE'])
 
     >>> get_ranges_w_variant(50, 59, 59, (50, 61), (60, 70))
-    ([(50, 59)], 50)
+    ([(50, 59)], 50, ['VARTRUE'])
 
     >>> get_ranges_w_variant(1562576, 1562675, 1562675,
     ... (1560665, 1560925, 1562029, 1562216, 1562453, 1562675, 1563052, 1563398, 1563652, 1563868, 1564512, 1564764, 1565018, 1565671),
     ... (1560808, 1561033, 1562134, 1562379, 1562587, 1562824, 1563209, 1563559, 1563779, 1564102, 1564691, 1564946, 1565084, 1565985))
-    ([(1562576, 1562587)], 1562576)
+    ([(1562576, 1562587)], 1562576, ['VARFALSE'])
     """
 
     f4=open('deletioncut.txt','a') #code removed by deletions
+
+    varflag=[]
  
     assert last >= exon_starts[0]
     assert vstart <= exon_ends[-1]
@@ -203,12 +208,14 @@ def get_ranges_w_variant(last, vstart, vend, exon_starts, exon_ends, chrom=1): #
     while start < vstart and istart < len(exon_starts): #<= lets it capture 0 length regions, so I removed it and the +1 allows it to make 1 bp regions when two variants are right next to one another
         ranges.append((start, exon_ends[istart])) #removed +1 from exon_ends[istart] + 1, because IntervalSet is already in 0-based half-open format
         istart += 1
+        varflag.append("VARFALSE")
         if ranges[-1][1] >= vstart: # equal to is now possible, since we are including variant start+1 and ranges are in 0-based half-open
             ranges[-1] = (ranges[-1][0], vstart) #removed +1 from vstart + 1, because IntervalSet is already in 0-based half-open format
+            varflag[-1]="VARTRUE" #variant contained at end coordinate = TRUE
             break
         start = exon_starts[istart]
 
-    return ranges, last
+    return ranges, last, varflag
 
 import doctest
 res = doctest.testmod()
