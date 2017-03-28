@@ -8,7 +8,25 @@ import toolshed as ts
 from interlap import InterLap, Interval as IntervalSet, reduce as ireduce
 import numpy as np
 
-def split_ranges(ranges, splitters, varflag): # if range is in splitters, it is removed from potential constraint regions; import my version of interlap
+
+def overlaps(s1, e1, s2, e2):
+    """
+    >>> overlaps(2, 4, 3, 5)
+    True
+    >>> overlaps(2, 4, 4, 5)
+    False
+    >>> overlaps(2, 200, 3, 5)
+    True
+    >>> overlaps(3, 5, 2, 200)
+    True
+    >>> overlaps (3, 5, 5, 6)
+    False
+    >>> overlaps (5, 6, 3, 5)
+    False
+    """
+    return not (e1 <= s2 or s1 >= e2)
+
+def split_ranges(ranges, splitters, varflags): # if range is in splitters, it is removed from potential constraint regions; import my version of interlap
     """
     >>> split_ranges([(1018, 1034)], [(1022, 1034)], ['VARFALSE'])
     ([[(1018, 1022)]], ['VARFALSE'])
@@ -22,31 +40,37 @@ def split_ranges(ranges, splitters, varflag): # if range is in splitters, it is 
     >>> split_ranges([(1018, 1034), (1045, 1069)], None, ['VARFALSE', 'VARTRUE'])
     ([[(1018, 1034)], [(1045, 1069)]], ['VARFALSE', 'VARTRUE'])
 
-    >>> split_ranges([(1018, 1034)], [(1022, 1024), (1028, 1034)], ['VARFALSE'])
-    ([[(1018, 1022)], [(1024, 1028)]], ['VARFALSE'])
+    >>> split_ranges([(1018, 1034), (1045, 1069)], [(1030, 1032), (1047, 1050)], ['VARFALSE', 'VARTRUE'])
+    ([[(1018, 1030)], [(1032, 1034)], [(1045, 1047)], [(1050, 1069)]], ['VARFALSE', 'VARFALSE', 'VARTRUE', 'VARTRUE'])
 
-    >>> split_ranges([(18, 24), (28, 35), (55, 60)], [(28, 35), (55, 57)], ['VARFALSE'])
-    ([[(18, 24)], [(57, 60)]], ['VARFALSE'])
+    >>> split_ranges([(1018, 1034), (1045, 1069)], [(1030, 1050)], ['VARFALSE', 'VARTRUE'])
+    ([[(1018, 1030)], [(1050, 1069)]], ['VARFALSE', 'VARTRUE'])
+
+    >>> split_ranges([(1018, 1034)], [(1022, 1024), (1028, 1034)], ['VARFALSE'])
+    ([[(1018, 1022)], [(1024, 1028)]], ['VARFALSE', 'VARFALSE'])
+
+    >>> split_ranges([(18, 24), (28, 35), (55, 60)], [(28, 35), (55, 57)], ['VARFALSE', 'VARTRUE', 'VARTRUE'])
+    ([[(18, 24)], [(57, 60)]], ['VARFALSE', 'VARTRUE'])
 
     >>> split_ranges([(12, 18), (22, 28), (32, 39), (42, 48)],
-    ...                 [(12, 18), (22, 26),           (44, 48)], ['VARFALSE'])
-    ([[(26, 28)], [(32, 39)], [(42, 44)]], ['VARFALSE'])
+    ...                 [(12, 18), (22, 26),           (44, 48)], ['VARFALSE', 'VARFALSE', 'VARFALSE', 'VARTRUE'])
+    ([[(26, 28)], [(32, 39)], [(42, 44)]], ['VARFALSE', 'VARFALSE', 'VARTRUE'])
 
     >>> split_ranges([(11, 18), (22, 28), (32, 39), (42, 48)],
-    ...                 [(12, 18), (22, 26),           (44, 48)], ['VARFALSE'])
-    ([[(11, 12)], [(26, 28)], [(32, 39)], [(42, 44)]], ['VARFALSE'])
+    ...                 [(12, 18), (22, 26),           (44, 48)], ['VARFALSE', 'VARFALSE', 'VARFALSE', 'VARTRUE'])
+    ([[(11, 12)], [(26, 28)], [(32, 39)], [(42, 44)]], ['VARFALSE', 'VARFALSE', 'VARFALSE', 'VARTRUE'])
     """
-    #if vend > position:
-    #    ranges=[x._vals for x in IntervalSet(ranges).split([(position,vend)])]
-    #    if splitters is not None:
-    #        return [x._vals for x in IntervalSet([x[0] for x in ranges]).split(splitters)]
-    #    return ranges
     if splitters is None:
-        return [[x] for x in ranges], varflag
-    nranges=[x._vals for x in IntervalSet(ranges).split(splitters)]
-    for i, range in enumerate(ranges):
-        pass # TODO: fix instance where varflag needs to be split
-    return nranges, varflag
+        return [[x] for x in ranges], varflags
+    results=[x._vals for x in IntervalSet(ranges).split(splitters)]
+    vf=[]
+    for i, iv in enumerate(results):
+        for j, r in enumerate(ranges):
+            if overlaps(iv[0][0], iv[0][1], r[0], r[1]):
+                vf.append(varflags[j])
+                break
+    assert len(results) == len(vf)
+    return results, vf
 
 def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # NOTE: new model version
     """
