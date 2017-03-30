@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 # ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/ExAC.r0.3.sites.vep.vcf.gz
-VCF_PATH = "data/ExAC.r0.3.sites.vt.vep.vcf.gz" #"toyexac.vcf.gz" #"data/gnomad.exomes.r2.0.1.sites.vcf.gz"
+VCF_PATH = "toyexac2.vcf.gz" #"data/ExAC.r0.3.sites.vt.vep.vcf.gz" #"toyexac.vcf.gz" #"data/gnomad.exomes.r2.0.1.sites.vcf.gz"
 
 # ftp://ftp.ensembl.org/pub/release-75/gtf/homo_sapiens/Homo_sapiens.GRCh37.75.gtf.gz
 GTF_PATH = "data/Homo_sapiens.GRCh37.75.gtf.gz" #"toyexons.gtf.gz" #"data/Homo_sapiens.GRCh37.75.gtf.gz"
@@ -154,15 +154,14 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
 
             assert row['vstart'] <= exon_ends[-1], (row, exon_ends) # maybe use POS instead of vstart, so we can normalize and decompose?; should i check if end is less?
             row['vstart']=row['vstart']+1 # vstart is bed format variant coordinate, still true maybe use POS instead of vstart?
-            mranges, last, varflag = u.get_ranges(last, row['vstart'], row['vend'], exon_starts, exon_ends, row['chrom'])#TODO: fix get_ranges to do what split_ranges does, and land behind vend because it ends at vstart
-            
-            ranges, vf = u.split_ranges(mranges, splitter, varflag)
-            for ranges in u.split_ranges(mranges, splitter, varflag):
-
+            mranges, last, varflags = u.get_ranges(last, row['vstart'], row['vend'], exon_starts, exon_ends, row['chrom'])#TODO: fix get_ranges to do what split_ranges does, and land behind vend because it ends at vstart
+ #           print (last, row['vstart'], row['vend'], mranges, splitter, varflags)
+            mranges2, varflags2 = u.split_ranges(mranges, splitter, varflags)
+            for ranges, vf in zip(mranges2, varflags2):
                 row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
                 row['posns'] = list(it.chain.from_iterable([range(s+1, e+1) for s, e in ranges])) # since range is not inclusive at the end add +1, need to add +1 to start
                 row['ranges'] = ["%d-%d" % (s, e) for s, e in ranges]
-                row['varflag'] = ",".join(vf)
+                row['varflag'] = vf
                 #print (row)
                 #print (last,row['vstart'], "last n' vstart")
                 #print (ranges, row['ranges'])
@@ -194,7 +193,6 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 row['cg_content'] = u.floatfmt(np.mean([u.cg_content(s) for s in seqs]))
                 if row['cg_content'] == 'nan':
                     row['cg_content'] = '0'
-
                 # we are re-using the dict for each loop so force a copy.
                 try:
                     if row['ranges']:
@@ -216,12 +214,15 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                     continue
             except IndexError:
                 pass 
-            mranges, last, varflag = u.get_ranges(last, exon_ends[-1], row['vend'], exon_starts, exon_ends, row['chrom']) #TODO: fix vend?
-            for ranges in u.split_ranges(mranges, splitter, varflag):
+#            print (last, exon_ends[-1], row['vend'], exon_starts, exon_ends, row['chrom'])
+            mranges, last, varflags = u.get_ranges(last, exon_ends[-1]+1, exon_ends[-1]+1, exon_starts, exon_ends, row['chrom']) #TODO: fix vend?
+            
+            mranges2, varflags2 = u.split_ranges(mranges, splitter, varflags)
+            for ranges, vf in zip(mranges2, varflags2):
                 row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
                 row['posns'] = list(it.chain.from_iterable([range(s+1, e+1) for s, e in ranges])) #range is not inclusive at the end, need to add +1 to s
                 row['ranges'] = ["%d-%d" % (s, e) for s, e in ranges]
-                row['varflag'] = ",".join(vf)
+                row['varflag'] = vf
                 #print (row)
                 #print (last,row['vstart'], "last n' vstart")
                 #print (ranges, row['ranges'])

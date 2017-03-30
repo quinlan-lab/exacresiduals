@@ -82,11 +82,12 @@ def split_ranges(ranges, splitters, varflags): # if range is in splitters, it is
             if overlaps(iv[0][0], iv[0][1], r[0], r[1]):
                 vf.append(varflags[j])
                 break
-    if len(results) != len(vf):
-        print "\n"
-        print ranges, splitters, varflags
-        print results, vf
-        exit(1)
+    #if len(results) != len(vf):
+    #    print "\n"
+    #    print ranges, splitters, varflags
+    #    print results, vf
+    #    exit(1)
+    assert len(results) == len(vf)
     return results, vf
 
 def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # NOTE: new model version
@@ -150,6 +151,13 @@ def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # NOTE: new
 
     >>> get_ranges(4980013, 4980017, 4980019, [4977206, 4977209, 4978695, 4979932, 4980230, 4982744, 4983938, 4985117, 4987882, 4988407, 4989652, 4992118, 4993005, 4994330, 4995278, 4998358, 5001052, 5017596, 5062631], [4977209, 4977318, 4978747, 4980018, 4980239, 4982768, 4984022, 4985255, 4987955, 4988492, 4989788, 4992186, 4993065, 4994527, 4995323, 4998419, 5001083, 5017601, 5062651])
     ([(4980013, 4980016), (4980016, 4980018)], 4980019, ['VARFALSE', 'VARTRUE'])
+
+    >>> get_ranges(111933226, 111933256, 111933260, [111896196, 111896921, 111899238, 111899515, 111904127, 111907996, 111909967, 111914189, 111915861, 111916586, 111921957, 111930626, 111931761, 111933129], [111896475, 111897023, 111899363, 111899669, 111904254, 111908184, 111910121, 111914257, 111915954, 111916694, 111922073, 111930789, 111931898, 111933259])
+    ([(111933226, 111933255), (111933255, 111933259)], 111933260, ['VARFALSE', 'VARTRUE'])
+
+    >>> get_ranges(62000, 62023, 62070, (60925, 62000, 62045, 62080), (61033, 62040, 62060, 62100))
+    ([(62000, 62022), (62022, 62040), (62045, 62060)], 62070, ['VARFALSE', 'VARTRUE', 'VARTRUE'])
+
     """
 
     f4=open('deletioncut.txt','a') #code removed by deletions
@@ -195,16 +203,25 @@ def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # NOTE: new
             varflag.append("VARTRUE") #variant contained at end coordinate = TRUE; this indicates the region contains the variant, therefore should be considered 0 bp, get a 0 coverage and a 0 cpg score
             if exon_ends[istart-1] < vend:
                 if exon_ends[-1] < vend:
-                    varflag.append("VARTRUE")
-                    ranges.append((vstart-1, exon_ends[istart-1])); ranges.append((exon_starts[istart], exon_ends[-1]))
+                    #varflag.append("VARTRUE")
+                    ranges.append((vstart-1, exon_ends[istart-1]))
+                    if exon_starts[-1] < vend:
+                        if ranges[-1][1] < exon_starts[-1]:
+                            varflag.append("VARTRUE")
+                            ranges.append((exon_starts[-1], exon_ends[-1]))
                     break
                 ranges.append((vstart-1, exon_ends[istart-1]))
                 if vend < exon_starts[istart]:
                     ranges[-1]=(ranges[-1][0], exon_ends[istart-1])
                     break
-                ranges.append((exon_starts[istart], vend))
-                varflag.append("VARTRUE")
-                break
+                if vend < exon_ends[istart]:
+                    ranges.append((exon_starts[istart], vend))
+                    varflag.append("VARTRUE")
+                    break
+                else:
+                    ranges.append((exon_starts[istart], exon_ends[istart]))
+                    varflag.append("VARTRUE")
+                    break
             ranges.append((vstart-1, vend))
             break
         if exon_ends[-1]==exon_ends[istart-1] and vstart > exon_ends[-1]:

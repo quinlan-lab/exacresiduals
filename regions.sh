@@ -43,7 +43,7 @@ done
 #fi
 mkdir -p results/$date/
 ## generates regions and residuals files ##
-python exac-regions.py $ns $file > results/$date/exac-regions$n.txt # added $file as a placeholder for now, so we don't always hard code files
+#python exac-regions.py $ns $file > results/$date/exac-regions$n.txt # added $file as a placeholder for now, so we don't always hard code files
 python resid-plot.py $ns $syn $cpg -f results/$date/exac-regions$n.txt > results/$date/resids$c$s$n.txt
 cat <(head -1 results/$date/resids$c$s$n.txt) <(sed '1d' results/$date/resids$c$s$n.txt | sort -k12,12nr) > /tmp/residsort$c$s$n.txt
 python weightpercentile.py /tmp/residsort$c$s$n.txt > results/$date/weightedresiduals$c$s$n.txt

@@ -6,4 +6,4 @@
 #SBATCH --time=6:00:00
 #set -exo pipefail -o nounset
 
-bash regions.sh
+bash regions.sh -c -s
