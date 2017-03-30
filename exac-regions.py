@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 # ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/ExAC.r0.3.sites.vep.vcf.gz
-VCF_PATH = "toyexac2.vcf.gz" #"data/ExAC.r0.3.sites.vt.vep.vcf.gz" #"toyexac.vcf.gz" #"data/gnomad.exomes.r2.0.1.sites.vcf.gz"
+VCF_PATH = "data/ExAC.r0.3.sites.vt.vep.vcf.gz" #"toyexac.vcf.gz" #"data/gnomad.exomes.r2.0.1.sites.vcf.gz"
 
 # ftp://ftp.ensembl.org/pub/release-75/gtf/homo_sapiens/Homo_sapiens.GRCh37.75.gtf.gz
 GTF_PATH = "data/Homo_sapiens.GRCh37.75.gtf.gz" #"toyexons.gtf.gz" #"data/Homo_sapiens.GRCh37.75.gtf.gz"
@@ -46,7 +46,7 @@ kcsq = exac["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
 
 fasta = Fasta(FASTA_PATH, read_ahead=10000, as_raw=True)
 
-header = "chrom\tstart\tend\taf\tfunctional\tgene\ttranscript\texon\timpact\tvstart\tvend\tn_bases\tcg_content\tranges\tcoverage\tposns"
+header = "chrom\tstart\tend\taf\tfunctional\tgene\ttranscript\texon\timpact\tvstart\tvend\tn_bases\tcg_content\tranges\tcoverage\tposns\tvarflag"
 print("#" + header)
 keys = header.split("\t")
 global mranges, splitter
@@ -161,7 +161,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
                 row['posns'] = list(it.chain.from_iterable([range(s+1, e+1) for s, e in ranges])) # since range is not inclusive at the end add +1, need to add +1 to start
                 row['ranges'] = ["%d-%d" % (s, e) for s, e in ranges]
-                row['varflag'] = vf
+                row['varflag'] = ",".join(vf)
                 #print (row)
                 #print (last,row['vstart'], "last n' vstart")
                 #print (ranges, row['ranges'])
@@ -222,7 +222,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
                 row['posns'] = list(it.chain.from_iterable([range(s+1, e+1) for s, e in ranges])) #range is not inclusive at the end, need to add +1 to s
                 row['ranges'] = ["%d-%d" % (s, e) for s, e in ranges]
-                row['varflag'] = vf
+                row['varflag'] = ",".join(vf)
                 #print (row)
                 #print (last,row['vstart'], "last n' vstart")
                 #print (ranges, row['ranges'])
