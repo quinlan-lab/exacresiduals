@@ -78,24 +78,17 @@ def split_ranges(ranges, splitters, varflags): # if range is in splitters, it is
         return [ranges], [varflags]
     results=[x._vals for x in IntervalSet(ranges).split(splitters)]
     vf=[]; res=[]
-    for i in results:
-        res.append(i[0])
     for i, ivs in enumerate(results): # res
         v=[]
         for j, iv, in enumerate(ivs):
             for k, r in enumerate(ranges):
-                if overlaps(iv[0], iv[1], r[0], r[1]): #iv[0][0], iv[0][1]
+                if overlaps(iv[0], iv[1], r[0], r[1]):
                     v.append(varflags[k])
                     break
         vf.append(v)
-    #if len(results) != len(vf):
-    #    print "\n"
-    #    print ranges, splitters, varflags
-    #    print results, vf
-    #    exit(1)
-    #assert len(results) == len(vf) #res
-    res = [res]; vf = vf #[vf]
-    return results, vf #res
+    assert len(results) == len(vf)
+    res = [res]; vf = vf
+    return results, vf
 
 def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # NOTE: new model version
     """
@@ -165,6 +158,8 @@ def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # NOTE: new
     >>> get_ranges(62000, 62023, 62070, (60925, 62000, 62045, 62080), (61033, 62040, 62060, 62100))
     ([(62000, 62022), (62022, 62040), (62045, 62060)], 62070, ['VARFALSE', 'VARTRUE', 'VARTRUE'])
 
+    >>> get_ranges(24774300, 24775689, 24775703, [24769160, 24769613, 24770817, 24771170, 24771437, 24772279, 24772937, 24773246, 24773698, 24774143, 24774298, 24775693], [24769407, 24770063, 24770928, 24771312, 24771630, 24772420, 24773063, 24773483, 24773804, 24774298, 24774301, 24775699])
+    ([(24774300, 24774301), (24775693, 24775699)], 24775703, ['VARFALSE', 'VARTRUE'])
     """
 
     f4=open('deletioncut.txt','a') #code removed by deletions
@@ -196,6 +191,9 @@ def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # NOTE: new
         try: 
             if exon_starts[istart] > vstart and exon_starts[istart] < vend and ranges[-1][1] < vstart:
                 varflag.append("VARTRUE")
+                if vend > exon_ends[-1]:
+                    ranges.append((exon_starts[istart], exon_ends[istart]))  
+                    break
                 ranges.append((exon_starts[istart], vend))
                 break
         except IndexError:
