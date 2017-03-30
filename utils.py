@@ -32,7 +32,7 @@ def split_ranges(ranges, splitters, varflags): # if range is in splitters, it is
     ([[(1018, 1022)]], [['VARFALSE']])
 
     >>> split_ranges([(1018, 1034)], [(1030, 1032)], ['VARFALSE'])
-    ([[(1018, 1030), (1032, 1034)]], [['VARFALSE', 'VARFALSE']])
+    ([[(1018, 1030)], [(1032, 1034)]], [['VARFALSE'], ['VARFALSE']])
 
     >>> split_ranges([(1018, 1034)], None, ['VARFALSE'])
     ([[(1018, 1034)]], [['VARFALSE']])
@@ -41,24 +41,24 @@ def split_ranges(ranges, splitters, varflags): # if range is in splitters, it is
     ([[(1018, 1034), (1045, 1069)]], [['VARFALSE', 'VARTRUE']])
 
     >>> split_ranges([(1018, 1034), (1045, 1069)], [(1030, 1032), (1047, 1050)], ['VARFALSE', 'VARTRUE'])
-    ([[(1018, 1030), (1032, 1034), (1045, 1047), (1050, 1069)]], [['VARFALSE', 'VARFALSE', 'VARTRUE', 'VARTRUE']])
+    ([[(1018, 1030)], [(1032, 1034)], [(1045, 1047)], [(1050, 1069)]], [['VARFALSE'], ['VARFALSE'], ['VARTRUE'], ['VARTRUE']])
 
     >>> split_ranges([(1018, 1034), (1045, 1069)], [(1030, 1050)], ['VARFALSE', 'VARTRUE'])
-    ([[(1018, 1030), (1050, 1069)]], [['VARFALSE', 'VARTRUE']])
+    ([[(1018, 1030)], [(1050, 1069)]], [['VARFALSE'], ['VARTRUE']])
 
     >>> split_ranges([(1018, 1034)], [(1022, 1024), (1028, 1034)], ['VARFALSE'])
-    ([[(1018, 1022), (1024, 1028)]], [['VARFALSE', 'VARFALSE']])
+    ([[(1018, 1022)], [(1024, 1028)]], [['VARFALSE'], ['VARFALSE']])
 
     >>> split_ranges([(18, 24), (28, 35), (55, 60)], [(28, 35), (55, 57)], ['VARFALSE', 'VARTRUE', 'VARTRUE'])
-    ([[(18, 24), (57, 60)]], [['VARFALSE', 'VARTRUE']])
+    ([[(18, 24)], [(57, 60)]], [['VARFALSE'], ['VARTRUE']])
 
     >>> split_ranges([(12, 18), (22, 28), (32, 39), (42, 48)],
     ...                 [(12, 18), (22, 26),           (44, 48)], ['VARFALSE', 'VARFALSE', 'VARFALSE', 'VARTRUE'])
-    ([[(26, 28), (32, 39), (42, 44)]], [['VARFALSE', 'VARFALSE', 'VARTRUE']])
+    ([[(26, 28)], [(32, 39)], [(42, 44)]], [['VARFALSE'], ['VARFALSE'], ['VARTRUE']])
 
     >>> split_ranges([(11, 18), (22, 28), (32, 39), (42, 48)],
     ...                 [(12, 18), (22, 26),           (44, 48)], ['VARFALSE', 'VARFALSE', 'VARFALSE', 'VARTRUE'])
-    ([[(11, 12), (26, 28), (32, 39), (42, 44)]], [['VARFALSE', 'VARFALSE', 'VARFALSE', 'VARTRUE']])
+    ([[(11, 12)], [(26, 28)], [(32, 39)], [(42, 44)]], [['VARFALSE'], ['VARFALSE'], ['VARFALSE'], ['VARTRUE']])
 
     >>> split_ranges([(38826782, 38826890), (38827874, 38828144), (38828232, 38828286), (38834219, 38834405), (38834632, 38834759), (38834935, 38835008), (38837089, 38837266), (38842900, 38843135), (38845349, 38845487), (38847123, 38847183), (38847381, 38847501), (38848917, 38848968), (38849071, 38849201), (38850109, 38850221), (38851128, 38851287), (38851370, 38851483), (38852287, 38852501), (38852849, 38852912), (38853015, 38853214), (38853353, 38853472), (38855530, 38855611), (38855700, 38855757), (38857795, 38857952), (38858148, 38858212), (38858320, 38858416), (38858687, 38858777), (38860611, 38860612)],
     ...             [(38826782, 38826890), (38827874, 38828144), (38828232, 38828286), (38834219, 38834405), (38834632, 38834759), (38834935, 38835008), (38837089, 38837266), (38842900, 38843135)],
@@ -68,32 +68,34 @@ def split_ranges(ranges, splitters, varflags): # if range is in splitters, it is
     >>> split_ranges([(26782, 26890), (27874, 28144), (28232, 28286), (34219, 34405), (34632, 34759), (34935, 35008), (37089, 37266), (42900, 43135), (45349, 45487), (47123, 47183), (47381, 47501), (48917, 48968), (49071, 49201), (50109, 50221), (51128, 51287), (51370, 51483), (52287, 52501), (52849, 52912), (53015, 53214), (53353, 53472), (55530, 55611), (55700, 55757), (57795, 57952), (58148, 58212), (58320, 58416), (58687, 58777), (60611, 60612)],
     ...             [(27874, 28144), (28232, 28286), (34219, 34405), (34632, 34759), (34935, 35008), (37089, 37266), (42900, 43135)],
     ...             [ 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARTRUE'])
-    ([[(26782, 26890), (45349, 45487), (47123, 47183), (47381, 47501), (48917, 48968), (49071, 49201), (50109, 50221), (51128, 51287), (51370, 51483), (52287, 52501), (52849, 52912), (53015, 53214), (53353, 53472), (55530, 55611), (55700, 55757), (57795, 57952), (58148, 58212), (58320, 58416), (58687, 58777), (60611, 60612)]], [['VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARTRUE']])
+    ([[(26782, 26890)], [(45349, 45487), (47123, 47183), (47381, 47501), (48917, 48968), (49071, 49201), (50109, 50221), (51128, 51287), (51370, 51483), (52287, 52501), (52849, 52912), (53015, 53214), (53353, 53472), (55530, 55611), (55700, 55757), (57795, 57952), (58148, 58212), (58320, 58416), (58687, 58777), (60611, 60612)]], [['VARFALSE'], ['VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARTRUE']])
 
     >>> split_ranges([(3012265, 3012435), (3012435, 3012437)], [(3012265, 3012442), (3012442, 3012445)], ['VARFALSE', 'VARTRUE'])
-    ([[]], [[]])
+    ([], [])
     """
     results=[]
     if splitters is None:
-        #return [ranges], varflags
-        return [[x for x in ranges]], [varflags]
+        return [ranges], [varflags]
     results=[x._vals for x in IntervalSet(ranges).split(splitters)]
     vf=[]; res=[]
     for i in results:
         res.append(i[0])
-    for i, iv in enumerate(res): # results
-        for j, r in enumerate(ranges):
-            if overlaps(iv[0], iv[1], r[0], r[1]): #iv[0][0], iv[0][1]
-                vf.append(varflags[j])
-                break
+    for i, ivs in enumerate(results): # res
+        v=[]
+        for j, iv, in enumerate(ivs):
+            for k, r in enumerate(ranges):
+                if overlaps(iv[0], iv[1], r[0], r[1]): #iv[0][0], iv[0][1]
+                    v.append(varflags[k])
+                    break
+        vf.append(v)
     #if len(results) != len(vf):
     #    print "\n"
     #    print ranges, splitters, varflags
     #    print results, vf
     #    exit(1)
-    assert len(res) == len(vf) #results
-    res = [res]; vf = [vf]
-    return res, vf #results
+    #assert len(results) == len(vf) #res
+    res = [res]; vf = vf #[vf]
+    return results, vf #res
 
 def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # NOTE: new model version
     """
