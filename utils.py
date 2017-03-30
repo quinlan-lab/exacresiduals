@@ -60,11 +60,19 @@ def split_ranges(ranges, splitters, varflags): # if range is in splitters, it is
     ...                 [(12, 18), (22, 26),           (44, 48)], ['VARFALSE', 'VARFALSE', 'VARFALSE', 'VARTRUE'])
     ([[(11, 12)], [(26, 28)], [(32, 39)], [(42, 44)]], ['VARFALSE', 'VARFALSE', 'VARFALSE', 'VARTRUE'])
 
-    >>> split_ranges([(38826782, 38826890), (38827874, 38828144), (38828232, 38828286), (38834219, 38834405), (38834632, 38834759), (38834935, 38835008), (38837089, 38837266), (38842900, 38843135), (38845349, 38845487), (38847123, 38847183), (38847381, 38847501), (38848917, 38848968), (38849071, 38849201), (38850109, 38850221), (38851128, 38851287), (38851370, 38851483), (38852287, 38852501), (38852849, 38852912), (38853015, 38853214), (38853353, 38853472), (38855530, 38855611), (38855700, 38855757), (38857795, 38857952), (38858148, 38858212), (38858320, 38858416), (38858687, 38858777), (38860611, 38860612)],
-    ...             [(38826782, 38826890), (38827874, 38828144), (38828232, 38828286), (38834219, 38834405), (38834632, 38834759), (38834935, 38835008), (38837089, 38837266), (38842900, 38843135)],
+    #>>> split_ranges([(38826782, 38826890), (38827874, 38828144), (38828232, 38828286), (38834219, 38834405), (38834632, 38834759), (38834935, 38835008), (38837089, 38837266), (38842900, 38843135), (38845349, 38845487), (38847123, 38847183), (38847381, 38847501), (38848917, 38848968), (38849071, 38849201), (38850109, 38850221), (38851128, 38851287), (38851370, 38851483), (38852287, 38852501), (38852849, 38852912), (38853015, 38853214), (38853353, 38853472), (38855530, 38855611), (38855700, 38855757), (38857795, 38857952), (38858148, 38858212), (38858320, 38858416), (38858687, 38858777), (38860611, 38860612)],
+    #...             [(38826782, 38826890), (38827874, 38828144), (38828232, 38828286), (38834219, 38834405), (38834632, 38834759), (38834935, 38835008), (38837089, 38837266), (38842900, 38843135)],
+    #...             [ 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARTRUE'])
+    # ([[(38845349, 38845487)], [(38847123, 38847183)], [(38847381, 38847501)], [(38848917, 38848968)], [(38849071, 38849201)], [(38850109, 38850221)], [(38851128, 38851287)], [(38851370, 38851483)], [(38852287, 38852501)], [(38852849, 38852912)], [(38853015, 38853214)], [(38853353, 38853472)], [(38855530, 38855611)], [(38855700, 38855757)], [(38857795, 38857952)], [(38858148, 38858212)], [(38858320, 38858416)], [(38858687, 38858777)], [(38860611, 38860612)]], ['VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARTRUE']))
+    >>> split_ranges([(26782, 26890), (27874, 28144), (28232, 28286), (34219, 34405), (34632, 34759), (34935, 35008), (37089, 37266), (42900, 43135), (45349, 45487), (47123, 47183), (47381, 47501), (48917, 48968), (49071, 49201), (50109, 50221), (51128, 51287), (51370, 51483), (52287, 52501), (52849, 52912), (53015, 53214), (53353, 53472), (55530, 55611), (55700, 55757), (57795, 57952), (58148, 58212), (58320, 58416), (58687, 58777), (60611, 60612)],
+    ...             [(27874, 28144), (28232, 28286), (34219, 34405), (34632, 34759), (34935, 35008), (37089, 37266), (42900, 43135)],
     ...             [ 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARTRUE'])
-     ([[(38845349, 38845487)], [(38847123, 38847183)], [(38847381, 38847501)], [(38848917, 38848968)], [(38849071, 38849201)], [(38850109, 38850221)], [(38851128, 38851287)], [(38851370, 38851483)], [(38852287, 38852501)], [(38852849, 38852912)], [(38853015, 38853214)], [(38853353, 38853472)], [(38855530, 38855611)], [(38855700, 38855757)], [(38857795, 38857952)], [(38858148, 38858212)], [(38858320, 38858416)], [(38858687, 38858777)], [(38860611, 38860612)]], ['VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARTRUE']))
+    ([[(26782, 26890)], [(45349, 45487)], [(47123, 47183)], [(47381, 47501)], [(48917, 48968)], [(49071, 49201)], [(50109, 50221)], [(51128, 51287)], [(51370, 51483)], [(52287, 52501)], [(52849, 52912)], [(53015, 53214)], [(53353, 53472)], [(55530, 55611)], [(55700, 55757)], [(57795, 57952)], [(58148, 58212)], [(58320, 58416)], [(58687, 58777)], [(60611, 60612)]], ['VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARTRUE'])
+
+    >>> split_ranges([(3012265, 3012435), (3012435, 3012437)], [(3012265, 3012442), (3012442, 3012445)], ['VARFALSE', 'VARTRUE'])
+    ([], [])
     """
+    results=[]
     if splitters is None:
         return [[x] for x in ranges], varflags
     results=[x._vals for x in IntervalSet(ranges).split(splitters)]
@@ -74,7 +82,11 @@ def split_ranges(ranges, splitters, varflags): # if range is in splitters, it is
             if overlaps(iv[0][0], iv[0][1], r[0], r[1]):
                 vf.append(varflags[j])
                 break
-    assert len(results) == len(vf)
+    if len(results) != len(vf):
+        print "\n"
+        print ranges, splitters, varflags
+        print results, vf
+        exit(1)
     return results, vf
 
 def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # NOTE: new model version
@@ -130,6 +142,14 @@ def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # NOTE: new
     >>> get_ranges(0, 10, 10, range(0, 100, 10), range(5, 100, 10))
     ([(0, 5)], 0, ['VARFALSE'])
 
+    >>> get_ranges(98320, 98324, 98324, [14537, 14540, 15243, 15812, 16718, 17156, 17398, 18462, 18739, 19230, 19885, 24207, 26058, 27040, 28168, 28434, 28900, 29938, 32062, 34212, 34940, 36058, 36850, 38476, 48595, 49413, 49835, 50111, 52360, 53750, 64266, 64724, 70062, 74665, 82034, 83129, 84984, 91647, 96432, 98175], [14540, 14675, 15306, 15946, 16822, 17265, 17477, 18605, 18860, 19344, 19988, 24300, 26216, 27110, 28335, 28676, 29000, 30064, 32200, 34293, 35025, 36157, 36886, 38512, 48701, 49489, 49952, 50217, 52506, 53791, 64429, 64859, 70218, 74830, 82223, 83372, 85151, 91769, 96574, 98323])
+    ([(98320, 98323)], 98323, ['VARFALSE'])
+
+    >>> get_ranges(74667, 98324, 98324, [14537, 14540, 15243, 15812, 16718, 17156, 17398, 18462, 18739, 19230, 19885, 24207, 26058, 27040, 28168, 28434, 28900, 29938, 32062, 34212, 34940, 36058, 36850, 38476, 48595, 49413, 49835, 50111, 52360, 53750, 64266, 64724, 70062, 74665, 82034, 83129, 84984, 91647, 96432, 98175], [14540, 14675, 15306, 15946, 16822, 17265, 17477, 18605, 18860, 19344, 19988, 24300, 26216, 27110, 28335, 28676, 29000, 30064, 32200, 34293, 35025, 36157, 36886, 38512, 48701, 49489, 49952, 50217, 52506, 53791, 64429, 64859, 70218, 74830, 82223, 83372, 85151, 91769, 96574, 98323])
+    ([(74667, 74830), (82034, 82223), (83129, 83372), (84984, 85151), (91647, 91769), (96432, 96574), (98175, 98323)], 98323, ['VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE', 'VARFALSE'])
+
+    >>> get_ranges(4980013, 4980017, 4980019, [4977206, 4977209, 4978695, 4979932, 4980230, 4982744, 4983938, 4985117, 4987882, 4988407, 4989652, 4992118, 4993005, 4994330, 4995278, 4998358, 5001052, 5017596, 5062631], [4977209, 4977318, 4978747, 4980018, 4980239, 4982768, 4984022, 4985255, 4987955, 4988492, 4989788, 4992186, 4993065, 4994527, 4995323, 4998419, 5001083, 5017601, 5062651])
+    ([(4980013, 4980016), (4980016, 4980018)], 4980019, ['VARFALSE', 'VARTRUE'])
     """
 
     f4=open('deletioncut.txt','a') #code removed by deletions
@@ -137,7 +157,7 @@ def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # NOTE: new
     varflag=[]
  
     assert last >= exon_starts[0]
-    assert vstart <= exon_ends[-1]
+    #assert vstart <= exon_ends[-1]
     assert all(s < e for s, e in zip(exon_starts, exon_ends))
 
     istart = bisect_left(exon_starts, last) - 1
@@ -160,12 +180,13 @@ def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # NOTE: new
         varflag.append("VARFALSE") # unless using vstart, there is no variant
         try: 
             if exon_starts[istart] > vstart and exon_starts[istart] < vend and ranges[-1][1] < vstart:
-                ranges.append((exon_starts[istart], vend))
                 varflag.append("VARTRUE")
+                ranges.append((exon_starts[istart], vend))
                 break
         except IndexError:
             pass
         if ranges[-1][1] >= vstart: # equal to is now possible, since we are including variant start+1 and ranges are in 0-based half-open
+            #print vstart, vend, exon_ends[istart], ranges[-1][1]
             if ranges[-1][0]-(vstart-1)==0:
                 ranges[-1] = (ranges[-1][0], vstart)
                 varflag[-1]="VARTRUE"
@@ -173,13 +194,21 @@ def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # NOTE: new
             ranges[-1] = (ranges[-1][0], vstart-1) #removed +1 from vstart + 1, because IntervalSet is already in 0-based half-open format
             varflag.append("VARTRUE") #variant contained at end coordinate = TRUE; this indicates the region contains the variant, therefore should be considered 0 bp, get a 0 coverage and a 0 cpg score
             if exon_ends[istart-1] < vend:
-                varflag.append("VARTRUE")
                 if exon_ends[-1] < vend:
+                    varflag.append("VARTRUE")
                     ranges.append((vstart-1, exon_ends[istart-1])); ranges.append((exon_starts[istart], exon_ends[-1]))
                     break
-                ranges.append((vstart-1, exon_ends[istart-1])); ranges.append((exon_starts[istart], vend))
+                ranges.append((vstart-1, exon_ends[istart-1]))
+                if vend < exon_starts[istart]:
+                    ranges[-1]=(ranges[-1][0], exon_ends[istart-1])
+                    break
+                ranges.append((exon_starts[istart], vend))
+                varflag.append("VARTRUE")
                 break
             ranges.append((vstart-1, vend))
+            break
+        if exon_ends[-1]==exon_ends[istart-1] and vstart > exon_ends[-1]:
+            last=exon_ends[-1]
             break
         start = exon_starts[istart]
 
