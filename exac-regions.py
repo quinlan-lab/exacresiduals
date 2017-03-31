@@ -32,8 +32,10 @@ import argparse
 
 parser=argparse.ArgumentParser()
 parser.add_argument("-n", "--nosingletons", help="if you do NOT want singletons", action="store_true", default=False)
+parser.add_argument("-v", "--varflag", help="if you want separation by variant flags", action="store_true", default=False)
 args=parser.parse_args()
 nosingletons=args.nosingletons
+varflag=args.varflag
 
 zip = it.izip
 
@@ -76,6 +78,30 @@ def merge_rows(rows):
         elif new_rows[-1]['gene'] != row['gene'] or new_rows[-1]['vend'] <= row['vstart']:
             new_rows.append(row)
     return new_rows
+
+def separate_ranges(ranges, varflags): # for putting each VARTRUE range in its own range list, so that coverage and "cg_content" are only for true regions
+    """
+    >>> separate_ranges([[(26782, 26890)], [(45349, 45487), (58320, 58416), (58687, 58777), (60611, 60618)]], [['VARFALSE'], ['VARFALSE', 'VARFALSE', 'VARFALSE', 'VARTRUE']])
+    ([[(26782, 26890)], [(45349, 45487), (58320, 58416), (58687, 58777)], [(60611, 60618)]], [['VARFALSE'], ['VARFALSE', 'VARFALSE', 'VARFALSE'], ['VARTRUE']])
+    >>> separate_ranges([[(26782, 26890)], [(45349, 45487), (58320, 58416), (58687, 58777), (60611, 60618), (60422, 60443)]], [['VARFALSE'], ['VARFALSE', 'VARFALSE', 'VARFALSE', 'VARTRUE', 'VARTRUE']])
+    ([[(26782, 26890)], [(45349, 45487), (58320, 58416), (58687, 58777)], [(60611, 60618), (60422, 60443)]], [['VARFALSE'], ['VARFALSE', 'VARFALSE', 'VARFALSE'], ['VARTRUE', 'VARTRUE']])
+    """
+    newranges=[]; newvarflags=[]
+    for rangelist, flaglist in zip(ranges, varflags):
+        fr, fv, tr, tv = [], [], [], []
+        for r, v in zip(rangelist, flaglist):
+            if v=='VARFALSE':
+                fr.append(r); fv.append(v) 
+            if v=='VARTRUE':
+                tr.append(r); tv.append(v)
+        if fr and fv:
+            newranges.append(fr)
+            newvarflags.append(fv)
+        if tr and tv:
+            newranges.append(tr)
+            newvarflags.append(tv)
+  
+    return newranges, newvarflags
 
 import doctest
 res = doctest.testmod(verbose=0)
@@ -154,9 +180,15 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
 
             assert row['vstart'] <= exon_ends[-1], (row, exon_ends) # maybe use POS instead of vstart, so we can normalize and decompose?; should i check if end is less?
             row['vstart']=row['vstart']+1 # vstart is bed format variant coordinate, still true maybe use POS instead of vstart?
-            mranges, last, varflags = u.get_ranges(last, row['vstart'], row['vend'], exon_starts, exon_ends, row['chrom'])#TODO: fix get_ranges to do what split_ranges does, and land behind vend because it ends at vstart
+            last2 = last
+            if varflag:
+                mranges, last, varflags = u.get_ranges(last, row['vstart'], row['vend'], exon_starts, exon_ends, row['chrom'])#TODO: fix get_ranges to do what split_ranges does, and land behind vend because it ends at vstart
  #           print (last, row['vstart'], row['vend'], mranges, splitter, varflags)
+            else:
+                 mranges, last, varflags = u.get_ranges_w_variant(last, row['vstart'], row['vend'], exon_starts, exon_ends, row['chrom'])
             mranges2, varflags2 = u.split_ranges(mranges, splitter, varflags)
+            if varflag:
+                mranges2, varflags2 = separate_ranges(mranges2, varflags2)
             for ranges, vf in zip(mranges2, varflags2):
                 row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
                 row['posns'] = list(it.chain.from_iterable([range(s+1, e+1) for s, e in ranges])) # since range is not inclusive at the end add +1, need to add +1 to start
@@ -180,6 +212,8 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 ranges = set(it.chain.from_iterable(range(int(x[0]), int(x[1])) for x in (z.split("-") for z in row['ranges'])))
                 m = len(ranges - exon_bases)
                 if m > len(row['ranges']):
+                    #print (last2, row['vstart'], row['vend'], exon_starts, exon_ends)
+                    #print (row['ranges'], ranges - exon_bases)
                     print(last, row['vstart'], row['ranges'], len(ranges -
                         exon_bases), zip(exon_starts, exon_ends),
                         file=sys.stderr)
@@ -218,6 +252,8 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             mranges, last, varflags = u.get_ranges(last, exon_ends[-1]+1, exon_ends[-1]+1, exon_starts, exon_ends, row['chrom']) #TODO: fix vend?
             
             mranges2, varflags2 = u.split_ranges(mranges, splitter, varflags)
+            if varflag:
+                mranges2, varflags2 = separate_ranges(mranges2, varflags2)
             for ranges, vf in zip(mranges2, varflags2):
                 row['coverage'] = ",".join(",".join(u.floatfmt(g) for g in coverage_array[s:e]) for s, e in ranges)
                 row['posns'] = list(it.chain.from_iterable([range(s+1, e+1) for s, e in ranges])) #range is not inclusive at the end, need to add +1 to s

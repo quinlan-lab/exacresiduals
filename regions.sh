@@ -1,7 +1,7 @@
 ## folder made by date, in case we make major changes to exac-regions.py or resid-plot.py ##
-date=2017_03_16 # default date value
+date=2017_03_30 # default date value
 rm coveragecut.txt deletioncut.txt segdupscut.txt selfchaincut.txt
-while getopts ":d:scnf:" opt; do
+while getopts ":d:scnvf:" opt; do
     case $opt in
         d)
             echo "-date was triggered, input: $OPTARG" >&2
@@ -26,6 +26,11 @@ while getopts ":d:scnf:" opt; do
             echo "-file input into the model was specified, input: $OPTARG" >&2
             file=$OPTARG
             ;;
+        v)
+            echo "-variant flags incorporated into the model" >&2
+            var="-v"
+            v="-novariant"
+            ;;
         \?)
             echo "Invalid option: -$OPTARG" >&2
             exit 1
@@ -43,7 +48,7 @@ done
 #fi
 mkdir -p results/$date/
 ## generates regions and residuals files ##
-#python exac-regions.py $ns $file > results/$date/exac-regions$n.txt # added $file as a placeholder for now, so we don't always hard code files
-python resid-plot.py $ns $syn $cpg -f results/$date/exac-regions$n.txt > results/$date/resids$c$s$n.txt
-cat <(head -1 results/$date/resids$c$s$n.txt) <(sed '1d' results/$date/resids$c$s$n.txt | sort -k12,12nr) > /tmp/residsort$c$s$n.txt
-python weightpercentile.py /tmp/residsort$c$s$n.txt > results/$date/weightedresiduals$c$s$n.txt
+python exac-regions.py $ns $v $file > results/$date/exac-regions$n$v.txt # added $file as a placeholder for now, so we don't always hard code files
+#python resid-plot.py $ns $syn $cpg $v -f results/$date/exac-regions$n$v.txt > results/$date/resids$c$s$n$v.txt
+#cat <(head -1 results/$date/resids$c$s$n$v.txt) <(sed '1d' results/$date/resids$c$s$n$v.txt | sort -k12,12nr) > /tmp/residsort$c$s$n$v.txt
+#python weightpercentile.py /tmp/residsort$c$s$n$v.txt > results/$date/weightedresiduals$c$s$n$v.txt
