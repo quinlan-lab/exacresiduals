@@ -40,12 +40,19 @@ kcsq = exac["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
 
 ys, genes = [], []
 
-def syn_density(pairs, d, exac, kcsq, nosingletons):    
+def syn_density(pairs, d, exac, kcsq, nosingletons, varflag):
     syn=0
     synbool=False; prevvar=None
+    if varflag:
+        if 'VARTRUE' in d['varflag']: # don't need syn for a 0 bp region, i.e., variant, so give it the lowest possible, 0
+            return syn
     for pair in pairs:
-        r0=str(int(pair[0])+1); r1=str(int(pair[1])-1);
-        if int(r0)-int(r1)==1: continue # don't need syn_count for a region of length 1 (0 bp region)
+        if varflag:
+            r0=str(int(pair[0])+1); r1=str(int(pair[1])); #in this case, does not include a variant at the end coordinate
+        else:
+            r0=str(int(pair[0])+1); r1=str(int(pair[1])-1);
+        if not varflag:
+            if int(r0)-int(r1)==1: continue # don't need syn for a region of length 1 (0 bp region), which it would be if a variant was included at the end coordinate
         for v in exac(d['chrom']+':'+r0+'-'+r1):
             if v.INFO['AC_Adj']==1 and nosingletons: continue
             if prevvar is not None and v.start+v.end==prevvar: continue
@@ -77,9 +84,9 @@ for i, d in enumerate(ts.reader(rfile)):
     #except:
     #    print >>sys.stderr, d, pairs
     #    raise
-    row=(d['chrom'], str(d['start']), str(d['end']), d['gene'], d['transcript'], d['exon'], d['ranges'])
+    row=(d['chrom'], str(d['start']), str(d['end']), d['gene'], d['transcript'], d['exon'], d['ranges'], d['varflag'])
     if synonymous:
-        syn=syn_density(pairs, d, exac, kcsq, nosingletons)
+        syn=syn_density(pairs, d, exac, kcsq, nosingletons, varflag)
         if int(d['n_bases'])>1:
             d['syn_density']=syn/(float(d['n_bases'])-1); #+","+str(syn)+"/"+d['n_bases']; # -1 because we can't count the end coordinate, which is by default a variant
         else:
@@ -90,14 +97,20 @@ for i, d in enumerate(ts.reader(rfile)):
         d['syn_density']="na" # calculating synonymous density is really slow, so if we don't need to, we'd rather not.
         row = row + (d['syn_density'],)
     if cpg:
-        X['CpG'].append(float(d['cg_content']))
+        if varflag:
+            if 'VARTRUE' in d['varflag']:
+                X['CpG'].append(0.0) # if variant exists, then it is not a region and should be given the lowest possible value in the model
+            else:
+                X['CpG'].append(float(d['cg_content']))
+        else: 
+            X['CpG'].append(float(d['cg_content']))
     row = row + ("%.3f" % float(d['cg_content']),)
     genes.append(row)
     coverage=[]
     for val in d['coverage'].split(","):
         if val:
             coverage.append(float(val))
-    if not coverage:
+    if not coverage or (varflag and 'VARTRUE' in d['varflag']):
         coverage=[0]
     ys.append(sum(coverage))
 
@@ -122,7 +135,7 @@ resid_pctile = 100.0 * np.sort(resid).searchsorted(resid) / float(len(resid))
 
 assert len(genes) == len(ys) == len(resid)
 
-print "chrom\tstart\tend\tgene\ttranscript\texon\tranges\tsyn_density\tcpg\tcov_score\tresid\tresid_pctile"
+print "chrom\tstart\tend\tgene\ttranscript\texon\tranges\tvarflag\tsyn_density\tcpg\tcov_score\tresid\tresid_pctile"
 for i, row in enumerate(genes):
     vals = ["%.3f" % ys[i], "%.3f" % resid[i], "%.9f" % resid_pctile[i]]
     #if not "," in row[-1]:
@@ -132,7 +145,7 @@ for i, row in enumerate(genes):
     #    print "\t".join(list(row) + vals)
     #    continue
      
-    ranges = [x.split("-") for x in row[-3].split(",")]
+    ranges = [x.split("-") for x in row[6].split(",")]
     row=list(row)
     for s, e in ranges:
         row[1], row[2] = s, e
