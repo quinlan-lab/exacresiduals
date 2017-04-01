@@ -26,27 +26,22 @@ parser.add_argument("-c", "--cpg", help="cpg added to regression model", action=
 parser.add_argument("-s", "--synonymous", help="synonymous added to regression model", action="store_true", default=False)
 parser.add_argument("-f", "--file", help="regions input file, from exac-regions.py", required=True)
 parser.add_argument("-n", "--nosingletons", help="if you do NOT want singletons", action="store_true", default=False)
+parser.add_argument("-w", "--varflag", help="if you want separation by variant flags", action="store_true", default=False)
 
 args=parser.parse_args()
 cpg=args.cpg
 synonymous=args.synonymous
 nosingletons=args.nosingletons
 rfile=args.file
+varflag=args.varflag
 
 exac=VCF('data/ExAC.r0.3.sites.vt.vep.vcf.gz')
 kcsq = exac["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
 
 ys, genes = [], []
-syn = 0
-for i, d in enumerate(ts.reader(rfile)):
-    if d['chrom'] == 'X' or d['chrom'] == 'Y': continue
-    pairs = [x.split("-") for x in d['ranges'].strip().split(",")]
-    #try:
-    #    if sum(e - s for s, e in (map(int, p) for p in pairs)) <= 10: 
-    #        continue
-    #except:
-    #    print >>sys.stderr, d, pairs
-    #    raise
+
+def syn_density(pairs, d, exac, kcsq, nosingletons):    
+    syn=0
     synbool=False; prevvar=None
     for pair in pairs:
         r0=str(int(pair[0])+1); r1=str(int(pair[1])-1);
@@ -70,23 +65,40 @@ for i, d in enumerate(ts.reader(rfile)):
                         syn-=1; break
             synbool=False
             prevvar=v.start+v.end
-    if int(d['n_bases'])>1:
-        d['syn_density']=syn/(float(d['n_bases'])-1); syn=0; #+","+str(syn)+"/"+d['n_bases']; # -1 because we can't count the end coordinate, which is by default a variant
+
+    return syn
+
+for i, d in enumerate(ts.reader(rfile)):
+    if d['chrom'] == 'X' or d['chrom'] == 'Y': continue
+    pairs = [x.split("-") for x in d['ranges'].strip().split(",")]
+    #try:
+    #    if sum(e - s for s, e in (map(int, p) for p in pairs)) <= 10: 
+    #        continue
+    #except:
+    #    print >>sys.stderr, d, pairs
+    #    raise
+    row=(d['chrom'], str(d['start']), str(d['end']), d['gene'], d['transcript'], d['exon'], d['ranges'])
+    if synonymous:
+        syn=syn_density(pairs, d, exac, kcsq, nosingletons)
+        if int(d['n_bases'])>1:
+            d['syn_density']=syn/(float(d['n_bases'])-1); #+","+str(syn)+"/"+d['n_bases']; # -1 because we can't count the end coordinate, which is by default a variant
+        else:
+            d['syn_density']=0
+        X['syn'].append(float(d['syn_density'])) # 1-syn if we want to use as a measure of constraint; syn as a measure of mutability
+        row = row + ("%.3f" % float(d['syn_density']),)
     else:
-        d['syn_density']=0
-                
-                
-    genes.append((d['chrom'], str(d['start']), str(d['end']), d['gene'], d['transcript'], d['exon'], d['ranges'], "%.3f" % float(d['syn_density']), "%.3f" % float(d['cg_content'])))
+        d['syn_density']="na" # calculating synonymous density is really slow, so if we don't need to, we'd rather not.
+        row = row + (d['syn_density'],)
+    if cpg:
+        X['CpG'].append(float(d['cg_content']))
+    row = row + ("%.3f" % float(d['cg_content']),)
+    genes.append(row)
     coverage=[]
     for val in d['coverage'].split(","):
         if val:
             coverage.append(float(val))
     if not coverage:
         coverage=[0]
-    if cpg:
-        X['CpG'].append(float(d['cg_content']))
-    if synonymous:
-        X['syn'].append(float(d['syn_density'])) # 1-syn if we want to use as a measure of constraint; syn as a measure of mutability
     ys.append(sum(coverage))
 
 X['intercept'] = np.ones(len(ys))

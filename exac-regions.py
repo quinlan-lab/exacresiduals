@@ -32,7 +32,7 @@ import argparse
 
 parser=argparse.ArgumentParser()
 parser.add_argument("-n", "--nosingletons", help="if you do NOT want singletons", action="store_true", default=False)
-parser.add_argument("-v", "--varflag", help="if you want separation by variant flags", action="store_true", default=False)
+parser.add_argument("-w", "--varflag", help="if you want separation by variant flags", action="store_true", default=False)
 args=parser.parse_args()
 nosingletons=args.nosingletons
 varflag=args.varflag
@@ -104,7 +104,7 @@ def separate_ranges(ranges, varflags): # for putting each VARTRUE range in its o
     return newranges, newvarflags
 
 import doctest
-res = doctest.testmod(verbose=0)
+res = doctest.testmod(verbose=False)
 if res.failed != 0:
     sys.exit(1)
 
