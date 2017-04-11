@@ -1,14 +1,5 @@
 from __future__ import print_function
 
-# ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/ExAC.r0.3.sites.vep.vcf.gz
-VCF_PATH = "data/ExAC.r0.3.sites.vt.vep.vcf.gz" #"toyexac.vcf.gz" #"data/gnomad.exomes.r2.0.1.sites.vcf.gz"
-
-# ftp://ftp.ensembl.org/pub/release-75/gtf/homo_sapiens/Homo_sapiens.GRCh37.75.gtf.gz
-GTF_PATH = "data/Homo_sapiens.GRCh37.75.gtf.gz" #"toyexons.gtf.gz" #"data/Homo_sapiens.GRCh37.75.gtf.gz"
-
-# ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/coverage
-COVERAGE_PATH = "data/"
-
 # from UCSC. see data/get-chain.py, pipe output to sort -k1,1 -k2,2n | uniq | bgzip -c > data/self-chains.gt90.bed.gz
 SELF_CHAINS = "data/self-chains.gt90.bed.gz"
 
@@ -33,9 +24,21 @@ import argparse
 parser=argparse.ArgumentParser()
 parser.add_argument("-n", "--nosingletons", help="if you do NOT want singletons", action="store_true", default=False)
 parser.add_argument("-w", "--varflag", help="if you want separation by variant flags", action="store_true", default=False)
+parser.add_argument("-x", "--variants", help="ExAC or some other such variant file (VCF.gz)") # again, -v prints a stupid doctest message
+# ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/ExAC.r0.3.sites.vep.vcf.gz "toyexac.vcf.gz"
+parser.set_defaults(variants = 'data/gnomad.exomes.r2.0.1.sites.vep.vt.vcf.gz')
+parser.add_argument("-e", "--exons", help="File of exons, or genome space in which you are interested (GTF.gz)")
+# ftp://ftp.ensembl.org/pub/release-75/gtf/homo_sapiens/Homo_sapiens.GRCh37.75.gtf.gz
+parser.set_defaults(exons = 'data/Homo_sapiens.GRCh37.75.gtf.gz')
+parser.add_argument("-c", "--coverage", help="Location of coverage files with {chrom} in name, or genome space in which you are interested (txt.gz)")
+# ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/coverage
+parser.set_defaults(coverage = 'data/exacv2.chr{chrom}.cov.txt.gz')
 args=parser.parse_args()
 nosingletons=args.nosingletons
 varflag=args.varflag
+VCF_PATH = args.variants
+GTF_PATH = args.exons
+COVERAGE_PATH = args.coverage
 
 zip = it.izip
 
@@ -124,19 +127,34 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                                             "|tabix {bed} {chrom}".format(chrom=chrom, bed=SELF_CHAINS),"|tabix {bed} {chrom}".format(chrom=chrom, bed=SEGDUPS))
 
     print(chrom, file=sys.stderr)
+    prevpos=-1; idx=0
     for v in viter:
         if not (v.FILTER is None or v.FILTER == "PASS"):
             continue
         info = v.INFO
+        if prevpos == v.POS:
+            idx+=1
+        else:
+            idx=0
+            prevpos = v.POS
+        as_filter=info['AS_FilterStatus'].split(",")[idx]
+        if as_filter != "PASS":
+            continue
         try:
             csqs = [dict(zip(kcsq, c.split("|"))) for c in info['CSQ'].split(",")]
         except KeyError:
             continue
         # NOTE: using max here for alternates to be conservative
-        ac = info['AC_Adj']
+        try:
+            ac = info['AC_Adj']
+        except KeyError:
+            ac = info['AC']
         if not isinstance(ac, (int, long)):
             ac = max(ac)
-        af = ac / float(info['AN_Adj'] or 1)
+        try:
+            af = ac / float(info['AN_Adj'] or 1)
+        except KeyError:
+            af = ac / float(info['AN'] or 1)
         if ac == 1: #self-explanatory, but filters out singletons
             if nosingletons: continue
         # NOTE: not requiring canonical or requiring the csq to match the
@@ -183,9 +201,9 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             last2 = last
             if varflag:
                 mranges, last, varflags = u.get_ranges(last, row['vstart'], row['vend'], exon_starts, exon_ends, row['chrom'])#TODO: fix get_ranges to do what split_ranges does, and land behind vend because it ends at vstart
- #           print (last, row['vstart'], row['vend'], mranges, splitter, varflags)
             else:
                  mranges, last, varflags = u.get_ranges_w_variant(last, row['vstart'], row['vend'], exon_starts, exon_ends, row['chrom'])
+            #print (last, row['vstart'], row['vend'], mranges, splitter, varflags, exon_starts, exon_ends)
             mranges2, varflags2 = u.split_ranges(mranges, splitter, varflags)
             if varflag:
                 mranges2, varflags2 = separate_ranges(mranges2, varflags2)
@@ -214,8 +232,8 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 if m > len(row['ranges']):
                     #print (last2, row['vstart'], row['vend'], exon_starts, exon_ends)
                     #print (row['ranges'], ranges - exon_bases)
-                    print(last, row['vstart'], row['ranges'], len(ranges -
-                        exon_bases), zip(exon_starts, exon_ends),
+                    print(last, row['chrom'], row['vstart'], row['vend'], row['ranges'], len(ranges -
+                        exon_bases), mranges2, ranges, 
                         file=sys.stderr)
 
                 # start or end? if we use end then can have - diff.
@@ -248,9 +266,11 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                     continue
             except IndexError:
                 pass 
-#            print (last, exon_ends[-1], row['vend'], exon_starts, exon_ends, row['chrom'])
-            mranges, last, varflags = u.get_ranges(last, exon_ends[-1]+1, exon_ends[-1]+1, exon_starts, exon_ends, row['chrom']) #TODO: fix vend?
-            
+            if varflag:
+                mranges, last, varflags = u.get_ranges(last, exon_ends[-1]+1, exon_ends[-1]+1, exon_starts, exon_ends, row['chrom']) #TODO: fix vend?
+            else:
+                 mranges, last, varflags = u.get_ranges_w_variant(last, exon_ends[-1]+1, exon_ends[-1]+1, exon_starts, exon_ends, row['chrom'])
+            #print (last, row['vstart'], row['vend'], mranges, splitter, varflags, exon_starts, exon_ends)
             mranges2, varflags2 = u.split_ranges(mranges, splitter, varflags)
             if varflag:
                 mranges2, varflags2 = separate_ranges(mranges2, varflags2)
@@ -276,8 +296,8 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                 ranges = set(it.chain.from_iterable(range(int(x[0]), int(x[1])) for x in (z.split("-") for z in row['ranges'])))
                 m = len(ranges - exon_bases)
                 if m > len(row['ranges']):
-                    print(last, row['vstart'], row['ranges'], len(ranges -
-                        exon_bases), zip(exon_starts, exon_ends),
+                    print(last, row['chrom'], row['vstart'], row['vend'], row['ranges'], len(ranges -
+                        exon_bases), mranges2, ranges, 
                         file=sys.stderr)
 
                 # start or end? if we use end then can have - diff.
