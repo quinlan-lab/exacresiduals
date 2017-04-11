@@ -101,8 +101,8 @@ def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # NOTE: new
     ... 65985))
     ([(61018, 61033)], 61018, ['VARFALSE'])
 
-    >>> get_ranges(617350, 617346, 617369, (617350, 617350), (617400, 617400))
-    ([], 617369, [])
+    >>> get_ranges(350, 346, 369, (350, 350), (400, 400))
+    ([], 369, [])
     
     >>> get_ranges(0, 1, 1, (0, 20), (10, 30)) # needs varflag
     ([(0, 1)], 0, ['VARTRUE'])
@@ -119,11 +119,11 @@ def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # NOTE: new
     >>> get_ranges(7, 9, 9, (0, 20), (10, 30)) # needs varflag for second region only
     ([(7, 8), (8, 9)], 7, ['VARFALSE', 'VARTRUE'])
 
-    >>> get_ranges(38865400, 38865404, 38865425, (38865242, 38865242), (38865601, 38865601))
-    ([(38865400, 38865403), (38865403, 38865425)], 38865425, ['VARFALSE', 'VARTRUE'])
+    >>> get_ranges(65400, 65404, 65425, (65242, 65242), (65601, 65601))
+    ([(65400, 65403), (65403, 65425)], 65425, ['VARFALSE', 'VARTRUE'])
     
-    >>> get_ranges(38865405, 38865404, 38865425, (38865242, 38865242), (38865601, 38865601))
-    ([], 38865425, [])
+    >>> get_ranges(65405, 65404, 65425, (65242, 65242), (65601, 65601))
+    ([], 65425, [])
 
     >>> get_ranges(61018, 61990, 62001, (60925, 62000), (61033, 62040))
     ([(61018, 61033), (62000, 62001)], 62001, ['VARFALSE', 'VARTRUE'])
@@ -152,14 +152,20 @@ def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # NOTE: new
     >>> get_ranges(4980013, 4980017, 4980019, [4977206, 4977209, 4978695, 4979932, 4980230, 4982744, 4983938, 4985117, 4987882, 4988407, 4989652, 4992118, 4993005, 4994330, 4995278, 4998358, 5001052, 5017596, 5062631], [4977209, 4977318, 4978747, 4980018, 4980239, 4982768, 4984022, 4985255, 4987955, 4988492, 4989788, 4992186, 4993065, 4994527, 4995323, 4998419, 5001083, 5017601, 5062651])
     ([(4980013, 4980016), (4980016, 4980018)], 4980019, ['VARFALSE', 'VARTRUE'])
 
-    >>> get_ranges(111933226, 111933256, 111933260, [111896196, 111896921, 111899238, 111899515, 111904127, 111907996, 111909967, 111914189, 111915861, 111916586, 111921957, 111930626, 111931761, 111933129], [111896475, 111897023, 111899363, 111899669, 111904254, 111908184, 111910121, 111914257, 111915954, 111916694, 111922073, 111930789, 111931898, 111933259])
-    ([(111933226, 111933255), (111933255, 111933259)], 111933260, ['VARFALSE', 'VARTRUE'])
+    >>> get_ranges(933226, 933256, 933260, [896196, 896921, 899238, 899515, 904127, 907996, 909967, 914189, 915861, 916586, 921957, 930626, 931761, 933129], [896475, 897023, 899363, 899669, 904254, 908184, 910121, 914257, 915954, 916694, 922073, 930789, 931898, 933259])
+    ([(933226, 933255), (933255, 933259)], 933260, ['VARFALSE', 'VARTRUE'])
 
     >>> get_ranges(62000, 62023, 62070, (60925, 62000, 62045, 62080), (61033, 62040, 62060, 62100))
     ([(62000, 62022), (62022, 62040), (62045, 62060)], 62070, ['VARFALSE', 'VARTRUE', 'VARTRUE'])
 
-    >>> get_ranges(24774300, 24775689, 24775703, [24769160, 24769613, 24770817, 24771170, 24771437, 24772279, 24772937, 24773246, 24773698, 24774143, 24774298, 24775693], [24769407, 24770063, 24770928, 24771312, 24771630, 24772420, 24773063, 24773483, 24773804, 24774298, 24774301, 24775699])
-    ([(24774300, 24774301), (24775693, 24775699)], 24775703, ['VARFALSE', 'VARTRUE'])
+    >>> get_ranges(74300, 75689, 75703, [69160, 69613, 70817, 71170, 71437, 72279, 72937, 73246, 73698, 74143, 74298, 75693], [69407, 70063, 70928, 71312, 71630, 72420, 73063, 73483, 73804, 74298, 74301, 75699])
+    ([(74300, 74301), (75693, 75699)], 75703, ['VARFALSE', 'VARTRUE'])
+
+    >>> get_ranges(56832, 57012, 57080, [56792, 57019, 57447, 58103, 59303, 59430, 59682, 60936, 61007], [56846, 57073, 57501, 58175, 59339, 59497, 59850, 61007, 61010])
+    ([(56832, 56846), (57019, 57073)], 57080, ['VARFALSE', 'VARTRUE'])
+
+    >>> get_ranges(20756, 20888, 20942, [20569, 20896, 20899, 21009, 21573, 22326, 22633, 22851, 23403, 26831, 40040], [20771, 20899, 20905, 21230, 21688, 22548, 22768, 23039, 23835, 26921, 40131])
+    ([(20756, 20771), (20896, 20899), (20899, 20905)], 20942, ['VARFALSE', 'VARTRUE', 'VARTRUE'])
     """
 
     f4=open('deletioncut.txt','a') #code removed by deletions
@@ -191,11 +197,21 @@ def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # NOTE: new
         try: 
             if exon_starts[istart] > vstart and exon_starts[istart] < vend and ranges[-1][1] < vstart:
                 varflag.append("VARTRUE")
-                if vend > exon_ends[-1]:
+                if vend < exon_ends[-1] and vend > exon_starts[-1]:
+                    ranges.append((exon_starts[-1], vend))
+                    break
+                elif vend > exon_ends[-1] or (vend < exon_starts[istart+1] and vend > exon_ends[istart]):
                     ranges.append((exon_starts[istart], exon_ends[istart]))  
                     break
-                ranges.append((exon_starts[istart], vend))
-                break
+                elif vend < exon_ends[istart]:
+                    ranges.append((exon_starts[istart], vend))
+                    break
+                else:
+                    while vend > exon_starts[istart]:
+                        ranges.append((exon_starts[istart], exon_ends[istart]))
+                        istart+=1
+                    varflag.append("VARTRUE")
+                    break
         except IndexError:
             pass
         if ranges[-1][1] >= vstart: # equal to is now possible, since we are including variant start+1 and ranges are in 0-based half-open
@@ -331,7 +347,7 @@ def path(p):
 def floatfmt(v, prec="%.2f"):
     return (prec % v).rstrip('0').rstrip('.')
 
-def read_coverage(chrom, cov=10, length=249250621, path="data/"):
+def read_coverage(chrom, cov=10, length=249250621, path="data/exacv2.chr{chrom}.cov.txt.gz"): #length may need to be fixed in the future, if new chromosome lengths are established in GRCh38
     """
     read ExAC coverage from a single chrom into a numpy array. If no length is
     given, just use the one length from chrom 1.
@@ -341,9 +357,9 @@ def read_coverage(chrom, cov=10, length=249250621, path="data/"):
 
     cols = "chrom	pos	mean	median	1	5	10	15	20	25	30	50 100".split()
     coli = cols.index(str(cov)) + 1
-
+    path=path.format(**locals()) 
     # just extract the position (2) and the requested column
-    p = subprocess.Popen("tabix {path}/Panel.chr{chrom}.coverage.txt.gz {chrom} | cut -f 2,{coli} ".format(**locals()), # {path}/exacv2.chr{chrom}.cov.txt.gz
+    p = subprocess.Popen("tabix {path} {chrom} | cut -f 2,{coli} ".format(**locals()), # {path}/exacv2.chr{chrom}.cov.txt.gz #{path}/Panel.chr{chrom}.coverage.txt.gz
             stdout=subprocess.PIPE, stderr=sys.stderr,
             shell=True,
             executable=os.environ.get("SHELL"))
