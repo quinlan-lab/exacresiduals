@@ -10,6 +10,7 @@ import scipy.stats as ss
 from statsmodels.formula.api import ols
 import pandas as pd
 from scipy.stats.mstats import hmean
+from sklearn import preprocessing
 
 import csv
 import sys
@@ -131,7 +132,14 @@ resid = OLSInfluence(results).get_resid_studentized_external()
 #variables['cpgcoef']=results.params['CpG']
 #pickle.dump(variables, open("var.pickle", "wb"))
 
-resid_pctile = 100.0 * np.sort(resid).searchsorted(resid) / float(len(resid))
+lowestresidual=np.min(resid)-.001
+for i, row in enumerate(genes):
+    if "VARTRUE" in row[7] and varflag: #row[7] is varflag
+        resid[i]=lowestresidual
+X_train=resid
+min_max_scaler = preprocessing.MinMaxScaler()
+resid_pctile = 100*min_max_scaler.fit_transform(X_train)
+#resid_pctile = 100.0 * np.sort(resid).searchsorted(resid) / float(len(resid))
 
 assert len(genes) == len(ys) == len(resid)
 
