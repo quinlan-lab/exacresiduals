@@ -112,6 +112,7 @@ if res.failed != 0:
     sys.exit(1)
 
 for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
+    chrom=str(chrom)
     rows = []
     print("reading chrom", file=sys.stderr)
 
@@ -129,7 +130,7 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
     print(chrom, file=sys.stderr)
     prevpos=-1; idx=0
     for v in viter:
-        if not (v.FILTER is None or v.FILTER == "PASS"):
+        if not (v.FILTER is None or v.FILTER in ["PASS"]):
             continue
         info = v.INFO
         if prevpos == v.POS:
@@ -137,15 +138,18 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
         else:
             idx=0
             prevpos = v.POS
-        as_filter=info['AS_FilterStatus'].split(",")[idx]
-        if as_filter != "PASS":
-            continue
+        try:
+            as_filter=info['AS_FilterStatus'].split(",")[idx]
+            if as_filter not in ["PASS"] :
+                continue
+        except KeyError:
+            pass
         try:
             csqs = [dict(zip(kcsq, c.split("|"))) for c in info['CSQ'].split(",")]
         except KeyError:
             continue
         # NOTE: using max here for alternates to be conservative
-        try:
+        try: # gnomad doesn't have adj like exacv1
             ac = info['AC_Adj']
         except KeyError:
             ac = info['AC']
@@ -155,6 +159,24 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             af = ac / float(info['AN_Adj'] or 1)
         except KeyError:
             af = ac / float(info['AN'] or 1)
+        try: #gnomad contains a large number of ashkenazi and finnish variation
+            if not isinstance(info['AC_FIN'], int):
+                acf = int(info['AC_FIN'][idx])
+            else:
+                acf = info['AC_FIN']
+                if acf > 0:
+                    continue
+        except KeyError:
+            pass
+        try:
+            if not isinstance(info['AC_ASJ'], int):
+                acj = int(info['AC_ASJ'][idx])
+            else:
+                acj = info['AC_ASJ']
+                if acj > 0:
+                    continue
+        except KeyError:
+            pass
         if ac == 1: #self-explanatory, but filters out singletons
             if nosingletons: continue
         # NOTE: not requiring canonical or requiring the csq to match the

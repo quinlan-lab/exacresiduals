@@ -347,7 +347,7 @@ def path(p):
 def floatfmt(v, prec="%.2f"):
     return (prec % v).rstrip('0').rstrip('.')
 
-def read_coverage(chrom, cov=10, length=249250621, path="data/exacv2.chr{chrom}.cov.txt.gz"): #length may need to be fixed in the future, if new chromosome lengths are established in GRCh38
+def read_coverage(chrom, cov=10, length=249250621, path="data/exacv2.chr{chrom}.cov.txt.gz"): #length may need to be fixed in the future, if new chromosome lengths are established in GRCh38 #or data/Panel.chr{chrom}.coverage.txt.gz for exacv1
     """
     read ExAC coverage from a single chrom into a numpy array. If no length is
     given, just use the one length from chrom 1.

@@ -6,4 +6,4 @@
 #SBATCH --time=6:00:00
 #set -exo pipefail -o nounset
 
-bash regions.sh -c -w
+bash regions.sh -c -w -d 2017_04_09 #noasjfin #nontcga

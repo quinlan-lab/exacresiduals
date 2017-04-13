@@ -14,7 +14,7 @@ from sklearn import preprocessing
 
 import csv
 import sys
-csv.field_size_limit(14365000)
+csv.field_size_limit(34365000)
 import cPickle as pickle
 from cyvcf2 import VCF
 import utils as u
