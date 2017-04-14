@@ -48,7 +48,6 @@ kcsq = exac["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
 
 #exac = exac("2:112538945-112551053")
 
-
 fasta = Fasta(FASTA_PATH, read_ahead=10000, as_raw=True)
 
 header = "chrom\tstart\tend\taf\tfunctional\tgene\ttranscript\texon\timpact\tvstart\tvend\tn_bases\tcg_content\tranges\tcoverage\tposns\tvarflag"
@@ -137,7 +136,7 @@ def perchrom(vcf_chrom):
     print(chrom, file=sys.stderr)
     prevpos=-1; idx=0
     for v in viter:
-        if not (v.FILTER is None or v.FILTER in ["PASS"]):
+        if not (v.FILTER is None or v.FILTER in ["PASS", "SEGDUP"]):
             continue
         info = v.INFO
         if prevpos == v.POS:
@@ -147,7 +146,7 @@ def perchrom(vcf_chrom):
             prevpos = v.POS
         try:
             as_filter=info['AS_FilterStatus'].split(",")[idx]
-            if as_filter not in ["PASS"] :
+            if as_filter not in ["PASS", "SEGDUP"] :
                 continue
         except KeyError:
             pass
