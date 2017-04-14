@@ -111,7 +111,14 @@ res = doctest.testmod(verbose=False)
 if res.failed != 0:
     sys.exit(1)
 
-for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
+chroms = [str(x) for x in range(1, 23)]
+
+#for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
+
+def perchrom(vcf_chrom):
+    vcf, chrom = vcf_chrom
+
+    viter = VCF(VCF_PATH)(chrom)
     chrom=str(chrom)
     rows = []
     print("reading chrom", file=sys.stderr)
@@ -319,14 +326,23 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
                         last = int(row['ranges'].split('-')[-1]) #so we can start at where the last range ended
                         out.append(dict(row))
                 except KeyError:
-                    pass 
+                    pass
 
     # still print in sorted order
     out.sort(key=operator.itemgetter('start'))
     last = (None, None)
+    outs = []
     for d in out:
         key = d['start'], d['end'], d['gene'] # added d['gene'] so it doesn't throw away longer regions without variants in a different gene overlapping the same genome space
         if key == last:
             continue
         last = key
+        outs.append(d)
+    return outs
+
+import multiprocessing as mp
+p = mp.Pool(12)
+
+for outs in p.imap_unordered(perchrom, ((VCF, str(chrom)) for chrom in range(1, 23))):
+    for d in outs:
         print("\t".join(map(str, (d[k] for k in keys))))
