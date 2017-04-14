@@ -159,24 +159,6 @@ for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
             af = ac / float(info['AN_Adj'] or 1)
         except KeyError:
             af = ac / float(info['AN'] or 1)
-        try: #gnomad contains a large number of ashkenazi and finnish variation
-            if not isinstance(info['AC_FIN'], int):
-                acf = int(info['AC_FIN'][idx])
-            else:
-                acf = info['AC_FIN']
-                if acf > 0:
-                    continue
-        except KeyError:
-            pass
-        try:
-            if not isinstance(info['AC_ASJ'], int):
-                acj = int(info['AC_ASJ'][idx])
-            else:
-                acj = info['AC_ASJ']
-                if acj > 0:
-                    continue
-        except KeyError:
-            pass
         if ac == 1: #self-explanatory, but filters out singletons
             if nosingletons: continue
         # NOTE: not requiring canonical or requiring the csq to match the
