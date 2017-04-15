@@ -168,8 +168,6 @@ def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # NOTE: new
     ([(20756, 20771), (20896, 20899), (20899, 20905)], 20942, ['VARFALSE', 'VARTRUE', 'VARTRUE'])
     """
 
-    f4=open('deletioncut.txt','a') #code removed by deletions
-
     varflag=[]
  
     assert last >= exon_starts[0]
