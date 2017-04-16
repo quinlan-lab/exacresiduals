@@ -4,7 +4,6 @@ import numpy as np
 import subprocess as sp
 import utils as u
 
-
 #intersect variants, add exacvars/gnomad vars to .sh script, then just tabix query gnomad for variants with greatest change and run statistics.
 
 parser=argparse.ArgumentParser()
@@ -21,42 +20,60 @@ exac = VCF(exac)
 gnomad = VCF(gnomad)
 kcsq = gnomad["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
 
-f=open("diff.txt","r")
-f2=open("results.txt", "w")
+f1=open("pathodiff.txt", "r")
+f2=open("benigndiff.txt", "r")
+f3=open("pathoresults.txt", "w")
+f4=open("benignresults.txt", "w")
 
-prevpos=-1; idx=0; varct, sct = 0, 0; prevvar=""
-for line in f:
-    fields = line.strip().split('\t')
-    chrom=fields[0]; start=fields[1]; end=fields[2]
-    position=chrom+":"+str(int(start)+1)+"-"+end
-    for gnovar in gnomad(position):
-        if str(gnovar)==str(prevvar):
-            continue
-        prevvar=gnovar
-        info = gnovar.INFO
-        try:
-            csqs = [dict(zip(kcsq, c.split("|"))) for c in info['CSQ'].split(",")]
-        except KeyError:
-            continue
-        if prevpos == gnovar.POS:
-            idx+=1
-        else:
-            idx=0
-            prevpos = gnovar.POS
-        for csq in (c for c in csqs if c['BIOTYPE'] == 'protein_coding'):
-            if u.isfunctional(csq):
-                varct+=1
-                #f2.write(str(gnovar))
-                ac = info['AC']
-                if not isinstance(info['AC'], (int, long)):
-                    #print gnovar, idx
-                    ac = ac[idx] 
-                if ac == 1:
-                    sct+=1
-                    #f2.write(str(gnovar))
-                break
-            
-f2.write(str(sct/float(varct)) + "\n")
+def stats(infile, outfile):
+    prevpos = -1; idx = 0; varct, sct, passct = 0, 0, 0; prevvar = None; prevline = None
+    for line in infile:
+        fields = line.strip().split('\t')
+        chrom=fields[0]; start=fields[1]; end=fields[2]
+        position=chrom+":"+str(int(start)+1)+"-"+end
+        if prevline:
+            if line == prevline:
+                continue
+        prevline=line
+        for gnovar in gnomad(position):
+            if prevpos == gnovar.POS:
+                idx+=1
+            else:
+                idx=0
+                prevpos = gnovar.POS
+            #print line, gnovar, idx
+            if prevvar:
+                newkey=gnovar.CHROM+str(gnovar.POS)+str(gnovar.ID)+str(gnovar.REF)+str(gnovar.ALT)
+                oldkey=prevvar.CHROM+str(prevvar.POS)+str(prevvar.ID)+str(prevvar.REF)+str(prevvar.ALT)
+                if newkey==oldkey:
+                    continue
+            prevvar=gnovar
+            info = gnovar.INFO
+            try:
+                csqs = [dict(zip(kcsq, c.split("|"))) for c in info['CSQ'].split(",")]
+            except KeyError:
+                continue
+            for csq in (c for c in csqs if c['BIOTYPE'] == 'protein_coding'):
+                if u.isfunctional(csq):
+                    varct+=1
+                    #outfile.write(str(gnovar))
+                    ac = info['AC']
+                    if not isinstance(info['AC'], (int, long)):
+                        ac = ac[idx] 
+                    if ac == 1:
+                        sct+=1
+                        #outfile.write(str(gnovar))
+                    if not (gnovar.FILTER is None or gnovar.FILTER in ["PASS", "SEGDUP"]):
+                        passct+=1
+                    break
+                
+    outfile.write(str(sct/float(varct)) + "\n")
+    outfile.write(str(passct/float(varct)) + "\n")
+
+stats(f1,f3)
+stats(f2,f4)
+
+f1.close(); f2.close(); f3.close(); f4.close()
 
 def query(regions,hotspot,wo):
     p1 = sp.Popen('zcat '+regions, shell = True, stdout = sp.PIPE)
@@ -69,5 +86,3 @@ def query(regions,hotspot,wo):
     return output.strip()
 
 #result = query(exac, gnomad, 1)
-#f.write(result)
-f.close(); f2.close()
