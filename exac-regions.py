@@ -31,6 +31,8 @@ parser.add_argument("-e", "--exons", help="File of exons, or genome space in whi
 # ftp://ftp.ensembl.org/pub/release-75/gtf/homo_sapiens/Homo_sapiens.GRCh37.75.gtf.gz
 parser.set_defaults(exons = 'data/Homo_sapiens.GRCh37.75.gtf.gz')
 parser.add_argument("-c", "--coverage", help="Location of coverage files with {chrom} in name, or genome space in which you are interested (txt.gz)")
+parser.add_argument("-d", "--depth", help="Coverage depth", default=30, type=int)
+parser.add_argument("-l", "--limit", help="Coverage cutoff/limit", default=0.7, type=float) 
 # ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/coverage
 parser.set_defaults(coverage = 'data/exacv2.chr{chrom}.cov.txt.gz')
 args=parser.parse_args()
@@ -39,6 +41,8 @@ varflag=args.varflag
 VCF_PATH = args.variants
 GTF_PATH = args.exons
 COVERAGE_PATH = args.coverage
+depth = args.depth
+cutoff = args.limit
 
 zip = it.izip
 
@@ -114,6 +118,12 @@ chroms = [str(x) for x in range(1, 23)]
 
 #for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
 
+def checkac(info, idx):
+    if isinstance(info['AC'], tuple):
+        return info['AC_AFR'][idx] == 0 and info['AC_AMR'][idx] == 0 and info['AC_EAS'][idx] == 0 and info['AC_NFE'][idx] == 0 and info['AC_OTH'][idx] == 0 and info['AC_SAS'][idx] == 0
+    else:
+        return info['AC_AFR'] == 0 and info['AC_AMR'] == 0 and info['AC_EAS'] == 0 and info['AC_NFE'] == 0 and info['AC_OTH'] == 0 and info['AC_SAS'] == 0
+
 def perchrom(vcf_chrom):
     vcf, chrom = vcf_chrom
 
@@ -123,20 +133,20 @@ def perchrom(vcf_chrom):
     print("reading chrom", file=sys.stderr)
 
     fa = fasta[chrom]
-    coverage_array = u.read_coverage(chrom, length=len(fa), cov=10,
-            path=COVERAGE_PATH)
+    coverage_array = u.read_coverage(chrom, length=len(fa), cov=depth,
+                        path=COVERAGE_PATH)
 
     gene_exon_starts, gene_exon_ends, splitters = u.read_exons("|tabix {gtf} {chrom}"
                                                             .format(chrom=chrom,
                                                                 gtf=GTF_PATH),
-                                                            chrom,
+                                                            chrom, cutoff,
                                                             coverage_array,
                                             "|tabix {bed} {chrom}".format(chrom=chrom, bed=SELF_CHAINS),"|tabix {bed} {chrom}".format(chrom=chrom, bed=SEGDUPS))
 
     print(chrom, file=sys.stderr)
     prevpos=-1; idx=0
     for v in viter:
-        if not (v.FILTER is None or v.FILTER in ["PASS", "SEGDUP"]):
+        if not (v.FILTER is None or v.FILTER in ["PASS", "SEGDUP", "LCR"]):
             continue
         info = v.INFO
         if prevpos == v.POS:
@@ -146,7 +156,7 @@ def perchrom(vcf_chrom):
             prevpos = v.POS
         try:
             as_filter=info['AS_FilterStatus'].split(",")[idx]
-            if as_filter not in ["PASS", "SEGDUP"] :
+            if as_filter not in ["PASS", "SEGDUP", "LCR"] :
                 continue
         except KeyError:
             pass
@@ -167,6 +177,20 @@ def perchrom(vcf_chrom):
             af = ac / float(info['AN'] or 1)
         if ac == 1: #self-explanatory, but filters out singletons
             if nosingletons: continue
+        # if checkac(info,idx):
+            # if isinstance(info['AC_ASJ'], tuple):
+                # if info['AC_ASJ'][idx] !=0:
+                    # continue
+            # else:
+                # if info['AC_ASJ'] !=0:
+                    # continue
+            # if isinstance(info['AC_ASJ'], tuple):
+                # if info['AC_FIN'][idx] !=0:
+                    # continue
+            # else:
+                # if info['AC_FIN'] != 0:
+                    # continue
+            
         # NOTE: not requiring canonical or requiring the csq to match the
         # particular alt that we chose.
         for csq in (c for c in csqs if c['BIOTYPE'] == 'protein_coding'): # getting duplicate rows because of this, wastes memory and potentially compute time, could remove and replace with just if isfunctional, add to rows then move on?

@@ -36,7 +36,7 @@ nosingletons=args.nosingletons
 rfile=args.file
 varflag=args.varflag
 
-exac=VCF('data/ExAC.r0.3.sites.vt.vep.vcf.gz')
+exac=VCF('data/ExAC.r0.3.sites.vt.vep.vcf.gz') # only used for synonymous density calculation...can update with gnomAD if we really need it later
 kcsq = exac["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
 
 ys, genes = [], []
@@ -137,8 +137,8 @@ for i, row in enumerate(genes):
     if "VARTRUE" in row[7] and varflag: #row[7] is varflag
         resid[i]=lowestresidual
 X_train=resid
-min_max_scaler = preprocessing.MinMaxScaler()
-resid_pctile = 100*min_max_scaler.fit_transform(X_train)
+min_max_scaler = preprocessing.MinMaxScaler(feature_range=(0,100))
+resid_pctile = min_max_scaler.fit_transform(X_train)
 #resid_pctile = 100.0 * np.sort(resid).searchsorted(resid) / float(len(resid))
 
 assert len(genes) == len(ys) == len(resid)

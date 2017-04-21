@@ -376,7 +376,7 @@ def read_coverage(chrom, cov=10, length=249250621, path="data/exacv2.chr{chrom}.
     return cov
 
 
-def read_exons(gtf, chrom, coverage_array, *args):
+def read_exons(gtf, chrom, cutoff, coverage_array, *args):
     genes = defaultdict(IntervalSet)
     splitters = defaultdict(IntervalSet)
 
@@ -411,7 +411,7 @@ def read_exons(gtf, chrom, coverage_array, *args):
         assert start <= end, toks
         key = toks[0], gene
 
-        cutoff = 0.3
+        #cutoff = 0.3
 
         # find sections of exon under certain coverage.
 #TODO: comment this if we don't want coverage cutoff filtering

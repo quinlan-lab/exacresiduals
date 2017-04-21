@@ -21,9 +21,7 @@ for d in regions:
         regionlength=0
         opct=d['resid_pctile']
     weighted.append(pct)
-#    line = "\t".join([i for i in d.values()]) + "\t" + str(pct)
-#    print line
-min_max_scaler = preprocessing.MinMaxScaler()
-resid_pctile = list(100*min_max_scaler.fit_transform(weighted))
+min_max_scaler = preprocessing.MinMaxScaler(feature_range=(0,100))
+resid_pctile = list(min_max_scaler.fit_transform(weighted))
 for i, d in enumerate(regions):
     print "\t".join(d[h] for h in header) + "\t" + str(resid_pctile[i])
