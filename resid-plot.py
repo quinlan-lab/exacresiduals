@@ -76,6 +76,8 @@ def syn_density(pairs, d, exac, kcsq, nosingletons, varflag):
 
     return syn
 
+varrow = []
+
 for i, d in enumerate(ts.reader(rfile)):
     if d['chrom'] == 'X' or d['chrom'] == 'Y': continue
     pairs = [x.split("-") for x in d['ranges'].strip().split(",")]
@@ -85,13 +87,24 @@ for i, d in enumerate(ts.reader(rfile)):
     #except:
     #    print >>sys.stderr, d, pairs
     #    raise
+    if 'VARTRUE' in d['varflag']:
+        varrow.append((d['chrom'], str(d['start']), str(d['end']), d['gene'], d['transcript'], d['exon'], d['ranges'], d['varflag'], 0, 0))
+        continue
     row=(d['chrom'], str(d['start']), str(d['end']), d['gene'], d['transcript'], d['exon'], d['ranges'], d['varflag'])
     if synonymous:
         syn=syn_density(pairs, d, exac, kcsq, nosingletons, varflag)
         if int(d['n_bases'])>1:
-            d['syn_density']=syn/(float(d['n_bases'])-1); #+","+str(syn)+"/"+d['n_bases']; # -1 because we can't count the end coordinate, which is by default a variant
+            if varflag:
+                if 'VARTRUE' not in d['varflag']: # code here in case we decided to downweight differently later
+                    d['syn_density']=syn/(float(d['n_bases'])-1); #+","+str(syn)+"/"+d['n_bases']; # -1 because we can't count the end coordinate, which is by default a variant
+            else:
+                d['syn_density']=syn/(float(d['n_bases'])-1); #+","+str(syn)+"/"+d['n_bases']; # -1 because we can't count the end coordinate, which is by default a variant
         else:
-            d['syn_density']=0
+            if varflag:
+                 if 'VARTRUE' not in d['varflag']: # code here in case we decided to downweight differently later
+                    d['syn_density']=0
+            else:
+                d['syn_density']=0
         X['syn'].append(float(d['syn_density'])) # 1-syn if we want to use as a measure of constraint; syn as a measure of mutability
         row = row + ("%.3f" % float(d['syn_density']),)
     else:
@@ -99,9 +112,7 @@ for i, d in enumerate(ts.reader(rfile)):
         row = row + (d['syn_density'],)
     if cpg:
         if varflag:
-            if 'VARTRUE' in d['varflag']:
-                X['CpG'].append(0.0) # if variant exists, then it is not a region and should be given the lowest possible value in the model
-            else:
+            if 'VARTRUE' not in d['varflag']: # code here in case we decided to downweight differently later
                 X['CpG'].append(float(d['cg_content']))
         else: 
             X['CpG'].append(float(d['cg_content']))
@@ -110,9 +121,17 @@ for i, d in enumerate(ts.reader(rfile)):
     coverage=[]
     for val in d['coverage'].split(","):
         if val:
-            coverage.append(float(val))
-    if not coverage or (varflag and 'VARTRUE' in d['varflag']):
-        coverage=[0]
+            if varflag:
+                if 'VARTRUE' not in d['varflag']: # code here in case we decided to downweight differently later
+                    coverage.append(float(val))
+            else:
+                coverage.append(float(val))
+    if not coverage:
+        if varflag:
+             if 'VARTRUE' not in d['varflag']: # code here in case we decided to downweight differently later
+                coverage=[0]
+        else:
+            coverage=[0]
     ys.append(sum(coverage))
 
 X['intercept'] = np.ones(len(ys))
@@ -133,9 +152,15 @@ resid = OLSInfluence(results).get_resid_studentized_external()
 #pickle.dump(variables, open("var.pickle", "wb"))
 
 lowestresidual=np.min(resid)-.001
-for i, row in enumerate(genes):
-    if "VARTRUE" in row[7] and varflag: #row[7] is varflag
-        resid[i]=lowestresidual
+#for i, row in enumerate(genes):
+#    if "VARTRUE" in row[7] and varflag: #row[7] is varflag
+#        resid[i]=lowestresidual
+resid=resid.tolist()
+for i, row in enumerate(varrow):
+    resid.append(lowestresidual)
+    genes.append(row)
+    ys.append(0)
+    
 X_train=resid
 min_max_scaler = preprocessing.MinMaxScaler(feature_range=(0,100))
 resid_pctile = min_max_scaler.fit_transform(X_train)
@@ -145,6 +170,7 @@ assert len(genes) == len(ys) == len(resid)
 
 print "chrom\tstart\tend\tgene\ttranscript\texon\tranges\tvarflag\tsyn_density\tcpg\tcov_score\tresid\tresid_pctile"
 for i, row in enumerate(genes):
+    #if "VARTRUE" in row[7] and varflag: #row[7] is varflag 
     vals = ["%.3f" % ys[i], "%.3f" % resid[i], "%.9f" % resid_pctile[i]]
     #if not "," in row[-1]:
     #    if not row[-1]:
