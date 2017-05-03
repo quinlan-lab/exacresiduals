@@ -194,7 +194,6 @@ def perchrom(vcf_chrom):
             if not u.isfunctional(csq): continue
             try:
                 if csq['cDNA_position']:
-                    sys.stderr.write(csq['cDNA_position'])
                     cdna_start, cdna_end = u.get_cdna_start_end(csq['cDNA_position'], v)
             except KeyError:
                 cdna_start, cdna_end = 'na','na' # apparently, sometimes ENSEMBL doesn't annotate splice_donor_variant&coding_sequence_variant combinations with cdna coords
