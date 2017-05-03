@@ -149,13 +149,8 @@ def perchrom(vcf_chrom):
         if not (v.FILTER is None or v.FILTER in ["PASS", "SEGDUP", "LCR"]):
             continue
         info = v.INFO
-        if prevpos == v.POS:
-            idx+=1
-        else:
-            idx=0
-            prevpos = v.POS
         try:
-            as_filter=info['AS_FilterStatus'].split(",")[idx]
+            as_filter=info['AS_FilterStatus'].split(",")[0]
             if as_filter not in ["PASS", "SEGDUP", "LCR"] :
                 continue
         except KeyError:
@@ -197,11 +192,11 @@ def perchrom(vcf_chrom):
             # skipping intronic
             if csq['Feature'] == '' or csq['EXON'] == '' : continue #or csq['cDNA_position'] == '': continue
             if not u.isfunctional(csq): continue
-
-            if csq['cDNA_position']:
-                cdna_start, cdna_end = u.get_cdna_start_end(csq['cDNA_position'], v)
-            else:
-                #print(v,file=sys.stderr)
+            try:
+                if csq['cDNA_position']:
+                    sys.stderr.write(csq['cDNA_position'])
+                    cdna_start, cdna_end = u.get_cdna_start_end(csq['cDNA_position'], v)
+            except KeyError:
                 cdna_start, cdna_end = 'na','na' # apparently, sometimes ENSEMBL doesn't annotate splice_donor_variant&coding_sequence_variant combinations with cdna coords
 
             rows.append(dict(chrom=v.CHROM, vstart=v.start, vend=v.end, af=af,
