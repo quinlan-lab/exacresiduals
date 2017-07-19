@@ -14,6 +14,7 @@ sns.set_style('whitegrid')
 from cyvcf2 import VCF
 import utils as u
 import pyinter
+from bw import BigWig
 
 region = sys.argv[1]
 if len(sys.argv) > 2:
@@ -58,6 +59,19 @@ def read_variants(region, path="data/ExAC.r0.3.sites.vep.vcf.gz"):
         #if j > 100000: break
     assert j > 0, ("no values found for", chrom, path)
     return var, filters
+
+def read_gerp(region, sends, path='/scratch/ucgd/lustre/u1021864/serial/hg19.gerp.bw'):
+    gerp = BigWig(path)
+    exongerp=[]
+    chrom, se = region.split(":")
+    s, e = map(int, se.split("-"))
+    if not chrom.startswith("chr"):
+        chrom = "chr" + chrom
+    for key in sends:
+        for (exs, exe) in zip(sends[key][0], sends[key][1]):
+             exongerp.extend(np.frombuffer(gerp.values(chrom, int(exs)-1, int(exe)), dtype='f'))
+
+    return np.frombuffer(gerp.values(chrom, int(s)-1, int(e)), dtype='f'), exongerp
 
 def read_coverage(region, cov=10, path="~u6000771/Data/ExAC-coverage/"):
     """
@@ -163,16 +177,21 @@ def read_repeats(path,keyname):
 gd=OrderedDict()
 gs,ge={},{}
 keys=[]
+f, axarr = plt.subplots(3, sharex=True)
 
-s, e, cov = read_coverage(region)
-f, axarr = plt.subplots(2, sharex=True)
-axarr[0].plot(range(s, e + 1), cov)
-ymin,ymax=axarr[1].get_ylim()[0]-.05,axarr[0].get_ylim()[1]+.05
-axarr[0].set_ylim(ymin,ymax)
 sends, names, ids, trs, totlen = read_exons("| tabix /scratch/ucgd/lustre/u1021864/serial/Homo_sapiens.GRCh37.75.gtf.gz {region}".format(region=region))
-
 gd.update(sends)
 keys.extend(sends.keys())
+
+s, e, cov = read_coverage(region)
+axarr[0].plot(range(s, e + 1), cov)
+ymin,ymax=axarr[0].get_ylim()[0]-.05,axarr[0].get_ylim()[1]+.05
+axarr[0].set_ylim(ymin,ymax)
+
+gerp, exongerp = read_gerp(region, sends)
+axarr[1].plot(range(s, e + 1), gerp)
+ymin,ymax=-12.36,6.18 
+#ymin,ymax=axarr[1].get_ylim()[0]-.05,axarr[1].get_ylim()[1]+.05axarr[1].set_ylim(ymin,ymax)
 
 sends = read_pfam("| tabix data/pfam.bed.gz {region}".format(region=region))
 gd.update(sends)
@@ -188,20 +207,37 @@ keys.extend(sends.keys())
 
 var, filters = read_variants(region)
 var2 = OrderedDict(sorted(var.items(), key=lambda t: t[0]))
-vqsr=float(len([i for i in var.keys() if i.startswith('VQSR')]))
+
+"""
+calculating VQSR Tranche densities
+"""
+
+vqsr={}
+for i in var2:
+    if i.startswith('VQSR'):
+        vqsr[i]=int(1/(len(var2[i])/float(totlen)))
+vqsrlen=len(vqsr)
 gd.update(var2)
 keys.extend(var2.keys())
 markers = ['bo','ro','go','yo','mo','co','ko']
 j = 0
 
-plt.title("%s/%s %s -- sum(cov): %.1f; syn density: 1/%i" % ("|".join(names), "|".join(ids),
-    region, cov.sum(), int(1/(len(var['syn'])/float(totlen)))))
+axarr[0].set_title("coverage plot -- sum(exonic cov): %.1f" % (cov.sum()))
+axarr[1].set_title("gerp plot -- mean(exonic gerp): %.1f" % (np.mean(exongerp)))
+densities=[]
+for i, k in vqsr.items():
+    densities.append(i); densities.append(k)
+strcat="; ".join(['%s density: 1/%s' for i in vqsr.keys()]) % tuple(densities)
+strcat="%s/%s %s -- syn density: 1/%i\n" % ("|".join(names), "|".join(ids), region, int(1/(len(var['syn'])/float(totlen)))) + strcat
+axarr[2].set_title(strcat.replace('VQSRTranche',''))
+plt.subplots_adjust(hspace=0.5)
+#bbox = f.get_tightbbox(f.canvas.get_renderer())
 
 for ind, key in enumerate(gd):
     if key.startswith('VQSR'):
         marker = 's'
         j+=1
-        color = (0,1/vqsr*j,0)
+        color = (0,1/float(vqsrlen)*j,0)
     elif key == 'syn':
         marker = 'o'
         color = 'c'
@@ -214,16 +250,16 @@ for ind, key in enumerate(gd):
         if key.startswith('ENST'):
             color = 'b'
     if marker != '':
-        axarr[1].plot(gd[key], np.zeros(len(gd[key])) + (ind+1)/1., marker=marker, color=color, label = key, ls='none')
+        axarr[2].plot(gd[key], np.zeros(len(gd[key])) + (ind+1)/1., marker=marker, color=color, label = key, ls='none')
     else:
         for k, (exs, exe) in enumerate(zip(gd[key][0], gd[key][1])):
-            axarr[1].plot([exs, exe], [ind+1/1., ind+1/1.], ls='-', color=color, lw=3)
+            axarr[2].plot([exs, exe], [ind+1/1., ind+1/1.], ls='-', color=color, lw=3)
 
-axarr[1].set_yticks(np.arange(1,(ind+2)/1))
-axarr[1].set_yticklabels(keys)
-ymin,ymax=axarr[1].get_ylim()[0]-.35,axarr[1].get_ylim()[1]+.35
-axarr[1].set_ylim(ymin,ymax)
-plt.tight_layout()
+axarr[2].set_yticks(np.arange(1,(ind+2)/1))
+fp=matplotlib.font_manager.FontProperties(family='sans-serif', style='normal', variant='normal', weight='normal', stretch='normal', size='xx-small')
+axarr[2].set_yticklabels(keys, fontproperties=fp)
+ymin,ymax=axarr[2].get_ylim()[0]-.25,axarr[2].get_ylim()[1]+.25
+axarr[2].set_ylim(ymin,ymax)
 
 plt.draw()
 ticks, labels = plt.xticks()
@@ -237,5 +273,5 @@ ax = plt.gca()
 ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
 
 plt.xlim(s, e)
-plt.savefig('figs/' + region.replace(":", "-") + ".png", bbox_inches='tight')
+plt.savefig('figs/' + region.replace(":", "-") + ".pdf", format='pdf', bbox_inches='tight')
 plt.close()
