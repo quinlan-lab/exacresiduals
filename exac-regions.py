@@ -31,8 +31,8 @@ parser.add_argument("-e", "--exons", help="File of exons, or genome space in whi
 # ftp://ftp.ensembl.org/pub/release-75/gtf/homo_sapiens/Homo_sapiens.GRCh37.75.gtf.gz
 parser.set_defaults(exons = 'data/Homo_sapiens.GRCh37.75.gtf.gz')
 parser.add_argument("-c", "--coverage", help="Location of coverage files with {chrom} in name, or genome space in which you are interested (txt.gz)")
-parser.add_argument("-d", "--depth", help="Coverage depth", default=30, type=int)
-parser.add_argument("-l", "--limit", help="Coverage cutoff/limit", default=0.7, type=float) 
+parser.add_argument("-d", "--depth", help="Coverage depth", default=10, type=int)
+parser.add_argument("-l", "--limit", help="Coverage cutoff/limit", default=0.5, type=float) 
 # ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/coverage
 parser.set_defaults(coverage = 'data/exacv2.chr{chrom}.cov.txt.gz')
 args=parser.parse_args()
@@ -190,7 +190,7 @@ def perchrom(vcf_chrom):
         # particular alt that we chose.
         for csq in (c for c in csqs if c['BIOTYPE'] == 'protein_coding'): # getting duplicate rows because of this, wastes memory and potentially compute time, could remove and replace with just if isfunctional, add to rows then move on?
             # skipping intronic
-            if csq['Feature'] == '' or csq['EXON'] == '' : continue #or csq['cDNA_position'] == '': continue
+            if csq['Feature'] == '' or csq['EXON'] == '': continue #or csq['cDNA_position'] == '': continue
             if not u.isfunctional(csq): continue
             try:
                 if csq['cDNA_position']:

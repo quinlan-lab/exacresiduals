@@ -456,18 +456,27 @@ def read_exons(gtf, chrom, cutoff, coverage_array, *args):
     return starts, ends, splits
 
 
-def get_cdna_start_end(cdna_start, v):
-    cdna_start = cdna_start.rstrip("-?")
+def get_cdna_start_end(cdna_position, v):
+    cdna_start, cdna_end = cdna_position.split("/")
+    #cdna_end = cdna_end.rstrip("-?")
     if cdna_start[0] == "?": # deletion
         _, cdna_end = cdna_start.split("-")
         cdna_end = int(cdna_end)
         cdna_start = cdna_end - len(v.REF)
-    elif "-" in cdna_start:
-        try:
-            cdna_start, cdna_end = map(int, cdna_start.split("-"))
-        except:
-            print(v.REF, v.ALT, cdna_start, csq)
-            raise
+    elif "-" == cdna_start:
+        cdna_start = "na"
+        cdna_end = "na"
+    elif "-" in cdna_start: 
+        if "?" in cdna_start:
+            cdna=cdna_start.split("-")
+            cdna_start = int(cdna[0])
+            cdna_end = "na"
+        else:
+            try:
+                cdna_start, cdna_end = map(int, cdna_start.split("-"))
+            except:
+                print(v.REF, v.ALT, cdna_start, v.INFO['CSQ'])
+                raise
     else:
         cdna_start = int(cdna_start)
         cdna_end = cdna_start + len(v.REF)
