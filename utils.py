@@ -297,7 +297,7 @@ def get_ranges_w_variant(last, vstart, vend, exon_starts, exon_ends, chrom=1): #
     ([(1562576, 1562587)], 1562576, ['VARFALSE'])
     """
 
-    f4=open('deletioncut.txt','a') #code removed by deletions
+    #f4=open('deletioncut.txt','a') #code removed by deletions
 
     varflag=[]
  
@@ -322,9 +322,9 @@ def get_ranges_w_variant(last, vstart, vend, exon_starts, exon_ends, chrom=1): #
     ranges = []; writedel=True
     while start < vstart and istart < len(exon_starts): #<= lets it capture 0 length regions, so I removed it and the +1 allows it to make 1 bp regions when two variants are right next to one another
         ranges.append((start, exon_ends[istart])) #removed +1 from exon_ends[istart] + 1, because IntervalSet is already in 0-based half-open format
-        if writedel and vstart < vend and vend > exon_starts[istart]:
-            f4.write("\t".join(map(str,[chrom,vstart,last]))+"\n") # removed by deletion, but only if it is within an exon
-            writedel=False
+        #if writedel and vstart < vend and vend > exon_starts[istart]:
+        #    f4.write("\t".join(map(str,[chrom,vstart,last]))+"\n") # removed by deletion, but only if it is within an exon
+        #    writedel=False
         istart += 1
         varflag.append("VARFALSE") # unless using vstart, there is no variant
         if ranges[-1][1] >= vstart: # equal to is now possible, since we are including variant start+1 and ranges are in 0-based half-open
@@ -379,7 +379,7 @@ def read_coverage(chrom, cov=10, length=249250621, path="data/exacv2.chr{chrom}.
     return cov
 
 
-def read_exons(gtf, chrom, cutoff, coverage_array, *args):
+def read_exons(gtf, chrom, cutoff, coverage_array, exclude):
     genes = defaultdict(IntervalSet)
     splitters = defaultdict(IntervalSet)
 
@@ -388,11 +388,12 @@ def read_exons(gtf, chrom, cutoff, coverage_array, *args):
     split_iv = InterLap()
     # preempt any bugs by checking that we are getting a particular chrom
     assert gtf[0] == "|", ("expecting a tabix query so we can handle chroms correctly")
-    f1 = open("selfchaincut.txt","a")
-    f2 = open("segdupscut.txt","a")
-    f3 = open("coveragecut.txt","a")
-    for a in args:
-        assert a[0] == "|", ("expecting a tabix query so we can handle chroms correctly", a)
+    #f1 = open("selfchaincut.txt","a")
+    #f2 = open("segdupscut.txt","a")
+    #f3 = open("coveragecut.txt","a")
+    for bed in exclude:
+        # expecting a tabix query so we can handle chroms correctly
+        a = "|tabix {bed} {chrom}".format(chrom=chrom, bed=bed)
     
         # any file that gets sent in will be used to split regions (just like
         # low-coverage). For example, we split on self-chains as well.
@@ -400,10 +401,10 @@ def read_exons(gtf, chrom, cutoff, coverage_array, *args):
         for toks in (x.strip().split("\t") for x in ts.nopen(a)): # adds self chains and segdups to splitters list, so that exons can be split, and they are removed from CCRs
             s, e = int(toks[1]), int(toks[2])
             split_iv.add((s, e))
-            if len(toks) > 3:
-                f1.write("\t".join(toks)+"\n") # self chain
-            else:
-                f2.write("\t".join(toks)+"\n") # segdups
+            #if len(toks) > 3:
+            #    f1.write("\t".join(toks)+"\n") # self chain
+            #else:
+            #    f2.write("\t".join(toks)+"\n") # segdups
                 
 
     for toks in (x.rstrip('\r\n').split("\t") for x in ts.nopen(gtf) if x[0] != "#"):
@@ -438,8 +439,8 @@ def read_exons(gtf, chrom, cutoff, coverage_array, *args):
             if is_under:
                 locs[-1].append(end) # in this case would end splitter at the end of the exon
             splitters[key].add(map(tuple, locs))
-            for i in locs:
-                f3.write(chrom+"\t"+"\t".join(map(str,i))+"\n")
+            #for i in locs:
+            #    f3.write(chrom+"\t"+"\t".join(map(str,i))+"\n")
 
         for s, e in split_iv.find((start - 1, end)):
             splitters[key].add([(s, e)])

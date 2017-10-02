@@ -7,7 +7,7 @@ bgzip -c flatexome.bed > flatexome.bed.gz; tabix flatexome.bed.gz
 echo "length of our flattened exome"
 awk '{t+=$3-$2} END {print t}' flatexome.bed # length of flattened exome
 echo "length of our most recent regions"
-awk '{t+=$3-$2} END {print t}' results/2016_12_10/weightedresiduals.txt # length of final regions
+awk '{t+=$3-$2} END {print t}' <(zcat ../essentials/gnomadbased-ccrs.bed.gz) # length of final regions: gnomad10x.5-ccrs.bed.gz
 
 cat coveragecut.txt segdupscut.txt selfchaincut.txt | cut -f -3 | sort -k1,1 -k2,2n | bedtools merge | bedtools intersect -a - -b flatexome.bed -sorted > cutregions.txt
 awk '{t+=$3-$2} END {print t}' cutregions.txt

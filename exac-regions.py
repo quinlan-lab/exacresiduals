@@ -1,14 +1,12 @@
 from __future__ import print_function
 
 # from UCSC. see data/get-chain.py, pipe output to sort -k1,1 -k2,2n | uniq | bgzip -c > data/self-chains.gt90.bed.gz
+
 SELF_CHAINS = "data/self-chains.gt90.bed.gz"
 
 # from UCSC.  data/segmental.bed.gz
 
 SEGDUPS = "data/segmental.bed.gz"
-
-FASTA_PATH = "/uufs/chpc.utah.edu/common/home/u6000771/Data/data/hs37d5.fa"
-
 
 import sys
 import itertools as it
@@ -26,13 +24,21 @@ parser.add_argument("-n", "--nosingletons", help="if you do NOT want singletons"
 parser.add_argument("-w", "--varflag", help="if you want separation by variant flags", action="store_true", default=False)
 parser.add_argument("-x", "--variants", help="ExAC or some other such variant file (VCF.gz)") # again, -v prints a stupid doctest message
 # ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/ExAC.r0.3.sites.vep.vcf.gz "toyexac.vcf.gz"
-parser.set_defaults(variants = 'data/gnomad.exomes.r2.0.1.sites.vep.vt.vcf.gz')
+parser.set_defaults(variants = 'data/gnomad-vep-vt.vcf.gz')
 parser.add_argument("-e", "--exons", help="File of exons, or genome space in which you are interested (GTF.gz)")
 # ftp://ftp.ensembl.org/pub/release-75/gtf/homo_sapiens/Homo_sapiens.GRCh37.75.gtf.gz
 parser.set_defaults(exons = 'data/Homo_sapiens.GRCh37.75.gtf.gz')
 parser.add_argument("-c", "--coverage", help="Location of coverage files with {chrom} in name, or genome space in which you are interested (txt.gz)")
 parser.add_argument("-d", "--depth", help="Coverage depth", default=10, type=int)
 parser.add_argument("-l", "--limit", help="Coverage cutoff/limit", default=0.5, type=float) 
+parser.add_argument("-f", "--fasta", help="Fasta file, or genome space in which you are interested (GTF.gz)")
+# fasta combined from: ftp://hgdownload.cse.ucsc.edu/goldenPath/hg19/chromosomes/
+#if [ ! -s hg19.fa ]; then
+#    sed 's/^>chr/^>/g' $DATA/hg19.fasta > data/hg19.fa # needed for fetalcoords.py; really in GRCh37 format, but from hg19 origin
+#fi
+parser.set_defaults(fasta = 'data/hg19.fa')
+# arguments in exclude must be in bed format and tabixed
+parser.add_argument("-s", "--exclude", default=[], help="Exclude files, tabixed and in BED format; e.g. self-chains and segdups", nargs='*') 
 # ftp://ftp.broadinstitute.org/pub/ExAC_release/release0.3/coverage
 parser.set_defaults(coverage = 'data/exacv2.chr{chrom}.cov.txt.gz')
 args=parser.parse_args()
@@ -43,6 +49,8 @@ GTF_PATH = args.exons
 COVERAGE_PATH = args.coverage
 depth = args.depth
 cutoff = args.limit
+exclude = args.exclude
+FASTA_PATH = args.fasta
 
 zip = it.izip
 
@@ -141,7 +149,8 @@ def perchrom(vcf_chrom):
                                                                 gtf=GTF_PATH),
                                                             chrom, cutoff,
                                                             coverage_array,
-                                            "|tabix {bed} {chrom}".format(chrom=chrom, bed=SELF_CHAINS),"|tabix {bed} {chrom}".format(chrom=chrom, bed=SEGDUPS))
+                                                            exclude)
+                                            #"|tabix {bed} {chrom}".format(chrom=chrom, bed=SELF_CHAINS),"|tabix {bed} {chrom}".format(chrom=chrom, bed=SEGDUPS))
 
     print(chrom, file=sys.stderr)
     prevpos=-1; idx=0
