@@ -92,6 +92,9 @@ def split_ranges(ranges, splitters, varflags): # if range is in splitters, it is
 
 def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # NOTE: new model version
     """
+    >>> get_ranges(874772, 874778, 874827, [874655], [874827])
+    ([(874772, 874777), (874777, 874827)], 874827, ['VARFALSE', 'VARTRUE'])
+    
     >>> get_ranges(61018, 62029, 62029, (
     ... 60174, 60370, 60665, 60925, 62029, 62216, 62453,
     ... 62675, 63052, 63398, 63652, 63868, 64512, 64764,
@@ -484,7 +487,7 @@ def get_cdna_start_end(cdna_position, v):
 
 def isfunctional(csq):
     return any(c in csq['Consequence'] for c in ('stop_gained', 'stop_lost', 'start_lost', 'initiator_codon_variant', 'rare_amino_acid_variant', 'missense_variant', 'protein_altering_variant', 'frameshift_variant', 'inframe_insertion', 'inframe_deletion')) \
-    or (('splice_donor_variant' in csq['Consequence'] or 'splice_acceptor_variant' in csq['Consequence'] or '5_prime_UTR_variant' in csq['Consequence'] or '3_prime_UTR_variant' in csq['Consequence']) and 'coding_sequence_variant' in csq['Consequence'])
+    or (('splice_donor_variant' in csq['Consequence'] or 'splice_acceptor_variant' in csq['Consequence']) and 'coding_sequence_variant' in csq['Consequence'])
 
 def cg_content(seq):
     if len(seq) == 0: return 0.0
