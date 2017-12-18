@@ -92,6 +92,9 @@ def split_ranges(ranges, splitters, varflags): # if range is in splitters, it is
 
 def get_ranges(last, vstart, vend, exon_starts, exon_ends, chrom=1): # NOTE: new model version
     """
+    >>> get_ranges(874772, 874778, 874827, [874655], [874827])
+    ([(874772, 874777), (874777, 874827)], 874827, ['VARFALSE', 'VARTRUE'])
+    
     >>> get_ranges(61018, 62029, 62029, (
     ... 60174, 60370, 60665, 60925, 62029, 62216, 62453,
     ... 62675, 63052, 63398, 63652, 63868, 64512, 64764,
@@ -294,7 +297,7 @@ def get_ranges_w_variant(last, vstart, vend, exon_starts, exon_ends, chrom=1): #
     ([(1562576, 1562587)], 1562576, ['VARFALSE'])
     """
 
-    f4=open('deletioncut.txt','a') #code removed by deletions
+    #f4=open('deletioncut.txt','a') #code removed by deletions
 
     varflag=[]
  
@@ -319,9 +322,9 @@ def get_ranges_w_variant(last, vstart, vend, exon_starts, exon_ends, chrom=1): #
     ranges = []; writedel=True
     while start < vstart and istart < len(exon_starts): #<= lets it capture 0 length regions, so I removed it and the +1 allows it to make 1 bp regions when two variants are right next to one another
         ranges.append((start, exon_ends[istart])) #removed +1 from exon_ends[istart] + 1, because IntervalSet is already in 0-based half-open format
-        if writedel and vstart < vend and vend > exon_starts[istart]:
-            f4.write("\t".join(map(str,[chrom,vstart,last]))+"\n") # removed by deletion, but only if it is within an exon
-            writedel=False
+        #if writedel and vstart < vend and vend > exon_starts[istart]:
+        #    f4.write("\t".join(map(str,[chrom,vstart,last]))+"\n") # removed by deletion, but only if it is within an exon
+        #    writedel=False
         istart += 1
         varflag.append("VARFALSE") # unless using vstart, there is no variant
         if ranges[-1][1] >= vstart: # equal to is now possible, since we are including variant start+1 and ranges are in 0-based half-open
@@ -376,7 +379,7 @@ def read_coverage(chrom, cov=10, length=249250621, path="data/exacv2.chr{chrom}.
     return cov
 
 
-def read_exons(gtf, chrom, cutoff, coverage_array, *args):
+def read_exons(gtf, chrom, cutoff, coverage_array, exclude):
     genes = defaultdict(IntervalSet)
     splitters = defaultdict(IntervalSet)
 
@@ -385,11 +388,12 @@ def read_exons(gtf, chrom, cutoff, coverage_array, *args):
     split_iv = InterLap()
     # preempt any bugs by checking that we are getting a particular chrom
     assert gtf[0] == "|", ("expecting a tabix query so we can handle chroms correctly")
-    f1 = open("selfchaincut.txt","a")
-    f2 = open("segdupscut.txt","a")
-    f3 = open("coveragecut.txt","a")
-    for a in args:
-        assert a[0] == "|", ("expecting a tabix query so we can handle chroms correctly", a)
+    #f1 = open("selfchaincut.txt","a")
+    #f2 = open("segdupscut.txt","a")
+    #f3 = open("coveragecut.txt","a")
+    for bed in exclude:
+        # expecting a tabix query so we can handle chroms correctly
+        a = "|tabix {bed} {chrom}".format(chrom=chrom, bed=bed)
     
         # any file that gets sent in will be used to split regions (just like
         # low-coverage). For example, we split on self-chains as well.
@@ -397,10 +401,10 @@ def read_exons(gtf, chrom, cutoff, coverage_array, *args):
         for toks in (x.strip().split("\t") for x in ts.nopen(a)): # adds self chains and segdups to splitters list, so that exons can be split, and they are removed from CCRs
             s, e = int(toks[1]), int(toks[2])
             split_iv.add((s, e))
-            if len(toks) > 3:
-                f1.write("\t".join(toks)+"\n") # self chain
-            else:
-                f2.write("\t".join(toks)+"\n") # segdups
+            #if len(toks) > 3:
+            #    f1.write("\t".join(toks)+"\n") # self chain
+            #else:
+            #    f2.write("\t".join(toks)+"\n") # segdups
                 
 
     for toks in (x.rstrip('\r\n').split("\t") for x in ts.nopen(gtf) if x[0] != "#"):
@@ -435,8 +439,8 @@ def read_exons(gtf, chrom, cutoff, coverage_array, *args):
             if is_under:
                 locs[-1].append(end) # in this case would end splitter at the end of the exon
             splitters[key].add(map(tuple, locs))
-            for i in locs:
-                f3.write(chrom+"\t"+"\t".join(map(str,i))+"\n")
+            #for i in locs:
+            #    f3.write(chrom+"\t"+"\t".join(map(str,i))+"\n")
 
         for s, e in split_iv.find((start - 1, end)):
             splitters[key].add([(s, e)])
@@ -456,18 +460,27 @@ def read_exons(gtf, chrom, cutoff, coverage_array, *args):
     return starts, ends, splits
 
 
-def get_cdna_start_end(cdna_start, v):
-    cdna_start = cdna_start.rstrip("-?")
+def get_cdna_start_end(cdna_position, v):
+    cdna_start, cdna_end = cdna_position.split("/")
+    #cdna_end = cdna_end.rstrip("-?")
     if cdna_start[0] == "?": # deletion
         _, cdna_end = cdna_start.split("-")
         cdna_end = int(cdna_end)
         cdna_start = cdna_end - len(v.REF)
-    elif "-" in cdna_start:
-        try:
-            cdna_start, cdna_end = map(int, cdna_start.split("-"))
-        except:
-            print(v.REF, v.ALT, cdna_start, csq)
-            raise
+    elif "-" == cdna_start:
+        cdna_start = "na"
+        cdna_end = "na"
+    elif "-" in cdna_start: 
+        if "?" in cdna_start:
+            cdna=cdna_start.split("-")
+            cdna_start = int(cdna[0])
+            cdna_end = "na"
+        else:
+            try:
+                cdna_start, cdna_end = map(int, cdna_start.split("-"))
+            except:
+                print(v.REF, v.ALT, cdna_start, v.INFO['CSQ'])
+                raise
     else:
         cdna_start = int(cdna_start)
         cdna_end = cdna_start + len(v.REF)
@@ -475,7 +488,7 @@ def get_cdna_start_end(cdna_start, v):
 
 def isfunctional(csq):
     return any(c in csq['Consequence'] for c in ('stop_gained', 'stop_lost', 'start_lost', 'initiator_codon_variant', 'rare_amino_acid_variant', 'missense_variant', 'protein_altering_variant', 'frameshift_variant', 'inframe_insertion', 'inframe_deletion')) \
-    or (('splice_donor_variant' in csq['Consequence'] or 'splice_acceptor_variant' in csq['Consequence'] or '5_prime_UTR_variant' in csq['Consequence'] or '3_prime_UTR_variant' in csq['Consequence']) and 'coding_sequence_variant' in csq['Consequence'])
+    or (('splice_donor_variant' in csq['Consequence'] or 'splice_acceptor_variant' in csq['Consequence']) and 'coding_sequence_variant' in csq['Consequence'])
 
 def cg_content(seq):
     if len(seq) == 0: return 0.0

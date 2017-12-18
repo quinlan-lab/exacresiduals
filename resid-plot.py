@@ -161,7 +161,7 @@ for i, row in enumerate(varrow):
     genes.append(row)
     ys.append(0)
     
-X_train=resid
+X_train=np.array(resid).reshape(len(resid),1)
 min_max_scaler = preprocessing.MinMaxScaler(feature_range=(0,100))
 resid_pctile = min_max_scaler.fit_transform(X_train)
 #resid_pctile = 100.0 * np.sort(resid).searchsorted(resid) / float(len(resid))
