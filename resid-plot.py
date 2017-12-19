@@ -28,6 +28,8 @@ parser.add_argument("-s", "--synonymous", help="synonymous added to regression m
 parser.add_argument("-f", "--file", help="regions input file, from exac-regions.py", required=True)
 parser.add_argument("-n", "--nosingletons", help="if you do NOT want singletons", action="store_true", default=False)
 parser.add_argument("-w", "--varflag", help="if you want separation by variant flags", action="store_true", default=False)
+parser.add_argument("-p", "--chromosomes", nargs='*', help="any chromosomes you want to capture explicitly", default=[])
+parser.add_argument("-x", "--exclude", nargs='*', help="any chromosomes you want to exclude explicitly", default=['Y'])
 
 args=parser.parse_args()
 cpg=args.cpg
@@ -35,6 +37,8 @@ synonymous=args.synonymous
 nosingletons=args.nosingletons
 rfile=args.file
 varflag=args.varflag
+chromosomes=args.chromosomes
+exclude=args.exclude
 
 exac=VCF('data/ExAC.r0.3.sites.vt.vep.vcf.gz') # only used for synonymous density calculation...can update with gnomAD if we really need it later
 kcsq = exac["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
@@ -79,7 +83,8 @@ def syn_density(pairs, d, exac, kcsq, nosingletons, varflag):
 varrow = []
 
 for i, d in enumerate(ts.reader(rfile)):
-    if d['chrom'] == 'X' or d['chrom'] == 'Y': continue
+    if chromosomes and d['chrom'] not in chromosomes: continue
+    if d['chrom'] in exclude: continue
     pairs = [x.split("-") for x in d['ranges'].strip().split(",")]
     #try:
     #    if sum(e - s for s, e in (map(int, p) for p in pairs)) <= 10: 
