@@ -126,11 +126,14 @@ for i, d in enumerate(ts.reader(rfile)):
     coverage=[]
     for val in d['coverage'].split(","):
         if val:
+            val = float(val)
             if varflag:
                 if 'VARTRUE' not in d['varflag']: # code here in case we decided to downweight differently later
-                    coverage.append(float(val))
+                    if d['chrom'] == 'X':
+                        val = val*(178817.0/(123136*2))
+                    coverage.append(val)
             else:
-                coverage.append(float(val))
+                coverage.append(val)
     if not coverage:
         if varflag:
              if 'VARTRUE' not in d['varflag']: # code here in case we decided to downweight differently later
