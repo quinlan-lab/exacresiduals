@@ -60,7 +60,6 @@ kcsq = exac["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
 
 #exac = exac("2:112538945-112551053")
 
-fasta = Fasta(FASTA_PATH, read_ahead=10000, as_raw=True)
 
 header = "chrom\tstart\tend\taf\tfunctional\tgene\ttranscript\texon\timpact\tvstart\tvend\tn_bases\tcg_content\tranges\tcoverage\tposns\tvarflag"
 print("#" + header)
@@ -122,7 +121,7 @@ res = doctest.testmod(verbose=False)
 if res.failed != 0:
     sys.exit(1)
 
-chroms = [str(x) for x in range(1, 23)]
+chroms = [str(x) for x in range(1, 23)] + ["X", "Y"]
 
 #for chrom, viter in it.groupby(exac, operator.attrgetter("CHROM")):
 
@@ -138,9 +137,10 @@ def perchrom(vcf_chrom):
     viter = VCF(VCF_PATH)(chrom)
     chrom=str(chrom)
     rows = []
-    print("reading chrom", file=sys.stderr)
+    print("reading chrom " + chrom, file=sys.stderr)
 
-    fa = fasta[chrom]
+    fasta = Fasta(FASTA_PATH, as_raw=True)
+    fa = str(fasta[chrom])
     coverage_array = u.read_coverage(chrom, length=len(fa), cov=depth,
                         path=COVERAGE_PATH)
 
@@ -152,7 +152,6 @@ def perchrom(vcf_chrom):
                                                             exclude)
                                             #"|tabix {bed} {chrom}".format(chrom=chrom, bed=SELF_CHAINS),"|tabix {bed} {chrom}".format(chrom=chrom, bed=SEGDUPS))
 
-    print(chrom, file=sys.stderr)
     prevpos=-1; idx=0
     for v in viter:
         if not (v.FILTER is None or v.FILTER in ["PASS", "SEGDUP", "LCR"]):
@@ -369,6 +368,6 @@ def perchrom(vcf_chrom):
 import multiprocessing as mp
 p = mp.Pool(12)
 
-for outs in p.imap_unordered(perchrom, ((VCF, str(chrom)) for chrom in range(1, 23))):
+for outs in p.imap_unordered(perchrom, ((VCF, str(chrom)) for chrom in chroms)):
     for d in outs:
         print("\t".join(map(str, (d[k] for k in keys))))

@@ -28,6 +28,9 @@ parser.add_argument("-s", "--synonymous", help="synonymous added to regression m
 parser.add_argument("-f", "--file", help="regions input file, from exac-regions.py", required=True)
 parser.add_argument("-n", "--nosingletons", help="if you do NOT want singletons", action="store_true", default=False)
 parser.add_argument("-w", "--varflag", help="if you want separation by variant flags", action="store_true", default=False)
+parser.add_argument("-p", "--chromosomes", nargs='*', help="any chromosomes you want to capture explicitly", default=[])
+parser.add_argument("-x", "--exclude", nargs='*', help="any chromosomes you want to exclude explicitly", default=['Y'])
+parser.add_argument("-q", "--xweighted", action="store_true", help="this adds special weighting to the X chromosome if you want to run the full model", default=False)
 
 args=parser.parse_args()
 cpg=args.cpg
@@ -35,15 +38,18 @@ synonymous=args.synonymous
 nosingletons=args.nosingletons
 rfile=args.file
 varflag=args.varflag
+chromosomes=args.chromosomes
+exclude=args.exclude
+xweighted=args.xweighted
 
-exac=VCF('data/ExAC.r0.3.sites.vt.vep.vcf.gz') # only used for synonymous density calculation...can update with gnomAD if we really need it later
-kcsq = exac["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
+gnomad=VCF('data/gnomad-vep-vt.vcf.gz') 
+kcsq = gnomad["CSQ"]["Description"].split(":")[1].strip(' "').split("|")
 
 ys, genes = [], []
 
-def syn_density(pairs, d, exac, kcsq, nosingletons, varflag):
+def syn_density(pairs, d, gnomad, kcsq, nosingletons, varflag):
     syn=0
-    synbool=False; prevvar=None
+    prevvar=None
     if varflag:
         if 'VARTRUE' in d['varflag']: # don't need syn for a 0 bp region, i.e., variant, so give it the lowest possible, 0
             return syn
@@ -54,10 +60,18 @@ def syn_density(pairs, d, exac, kcsq, nosingletons, varflag):
             r0=str(int(pair[0])+1); r1=str(int(pair[1])-1);
         if not varflag:
             if int(r0)-int(r1)==1: continue # don't need syn for a region of length 1 (0 bp region), which it would be if a variant was included at the end coordinate
-        for v in exac(d['chrom']+':'+r0+'-'+r1):
-            if v.INFO['AC_Adj']==1 and nosingletons: continue
-            if prevvar is not None and v.start+v.end==prevvar: continue
-            if not (v.FILTER is None or v.FILTER == "PASS"): continue
+        for v in gnomad(d['chrom']+':'+r0+'-'+r1):
+            if v.INFO['AC']==1 and nosingletons: continue
+            if prevvar is not None and str(v.start)+str(v.end)+str(v.ALT[0])==prevvar: continue
+            if not (v.FILTER is None or v.FILTER in ["PASS", "SEGDUP", "LCR"]):
+                continue
+            info = v.INFO
+            try:
+                as_filter=info['AS_FilterStatus'].split(",")[0]
+                if as_filter not in ["PASS", "SEGDUP", "LCR"] :
+                    continue
+            except KeyError:
+                pass
             info = v.INFO
             try:
                 csqs = [dict(zip(kcsq, c.split("|"))) for c in info['CSQ'].split(",")]
@@ -65,38 +79,28 @@ def syn_density(pairs, d, exac, kcsq, nosingletons, varflag):
                 continue
             for csq in (c for c in csqs if c['BIOTYPE'] == 'protein_coding'):
                 if csq['Feature'] == '' or csq['EXON'] == '' or csq['cDNA_position'] == '' or csq['SYMBOL']!=d['gene']: continue #in case non-exonic or not the same gene
-                if not u.isfunctional(csq):
-                    if not synbool:
-                        syn+=1; synbool=True
-                else:
-                    if synbool:
-                        syn-=1; break
-            synbool=False
-            prevvar=v.start+v.end
+                if u.issynonymous(csq):
+                        syn+=1; break
+            prevvar=str(v.start)+str(v.end)+str(v.ALT[0])
 
     return syn
 
 varrow = []
 
 for i, d in enumerate(ts.reader(rfile)):
-    if d['chrom'] == 'X' or d['chrom'] == 'Y': continue
+    if chromosomes and d['chrom'] not in chromosomes: continue
+    if d['chrom'] in exclude: continue
     pairs = [x.split("-") for x in d['ranges'].strip().split(",")]
-    #try:
-    #    if sum(e - s for s, e in (map(int, p) for p in pairs)) <= 10: 
-    #        continue
-    #except:
-    #    print >>sys.stderr, d, pairs
-    #    raise
     if 'VARTRUE' in d['varflag']:
         varrow.append((d['chrom'], str(d['start']), str(d['end']), d['gene'], d['transcript'], d['exon'], d['ranges'], d['varflag'], 0, 0))
         continue
     row=(d['chrom'], str(d['start']), str(d['end']), d['gene'], d['transcript'], d['exon'], d['ranges'], d['varflag'])
     if synonymous:
-        syn=syn_density(pairs, d, exac, kcsq, nosingletons, varflag)
+        syn=syn_density(pairs, d, gnomad, kcsq, nosingletons, varflag)
         if int(d['n_bases'])>1:
             if varflag:
                 if 'VARTRUE' not in d['varflag']: # code here in case we decided to downweight differently later
-                    d['syn_density']=syn/(float(d['n_bases'])-1); #+","+str(syn)+"/"+d['n_bases']; # -1 because we can't count the end coordinate, which is by default a variant
+                    d['syn_density']=syn/(float(d['n_bases'])); #+","+str(syn)+"/"+d['n_bases']
             else:
                 d['syn_density']=syn/(float(d['n_bases'])-1); #+","+str(syn)+"/"+d['n_bases']; # -1 because we can't count the end coordinate, which is by default a variant
         else:
@@ -121,11 +125,14 @@ for i, d in enumerate(ts.reader(rfile)):
     coverage=[]
     for val in d['coverage'].split(","):
         if val:
+            val = float(val)
             if varflag:
                 if 'VARTRUE' not in d['varflag']: # code here in case we decided to downweight differently later
-                    coverage.append(float(val))
+                    if d['chrom'] == 'X' and xweighted:
+                        val = val*(178817.0/(123136*2)) # max AN not in PARs
+                    coverage.append(val)
             else:
-                coverage.append(float(val))
+                coverage.append(val)
     if not coverage:
         if varflag:
              if 'VARTRUE' not in d['varflag']: # code here in case we decided to downweight differently later
@@ -135,6 +142,8 @@ for i, d in enumerate(ts.reader(rfile)):
     ys.append(sum(coverage))
 
 X['intercept'] = np.ones(len(ys))
+if cpg:
+    X.pop('syn', None)
 X = pd.DataFrame(X)
 
 
@@ -164,7 +173,7 @@ for i, row in enumerate(varrow):
 X_train=np.array(resid).reshape(len(resid),1)
 min_max_scaler = preprocessing.MinMaxScaler(feature_range=(0,100))
 resid_pctile = min_max_scaler.fit_transform(X_train)
-#resid_pctile = 100.0 * np.sort(resid).searchsorted(resid) / float(len(resid))
+#resid_pctile = 101.0 * np.sort(resid).searchsorted(resid) / float(len(resid))
 
 assert len(genes) == len(ys) == len(resid)
 

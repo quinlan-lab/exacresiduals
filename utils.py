@@ -490,6 +490,12 @@ def isfunctional(csq):
     return any(c in csq['Consequence'] for c in ('stop_gained', 'stop_lost', 'start_lost', 'initiator_codon_variant', 'rare_amino_acid_variant', 'missense_variant', 'protein_altering_variant', 'frameshift_variant', 'inframe_insertion', 'inframe_deletion')) \
     or (('splice_donor_variant' in csq['Consequence'] or 'splice_acceptor_variant' in csq['Consequence']) and 'coding_sequence_variant' in csq['Consequence'])
 
+def ismissense(csq):
+    return any(c in csq['Consequence'] for c in ('stop_gained', 'stop_lost', 'start_lost', 'initiator_codon_variant', 'rare_amino_acid_variant', 'missense_variant'))
+
+def issynonymous(csq):
+    return any(c in csq['Consequence'] for c in ('synonymous_variant', 'stop_retained_variant', 'start_retained_variant'))
+
 def cg_content(seq):
     if len(seq) == 0: return 0.0
     return 2.0 * seq.count('CG') / len(seq)

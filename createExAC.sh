@@ -13,7 +13,7 @@
 
 #gnomAD
 
-bash $HOME/analysis/varmake.sh $DATA/gnomad.exomes.r2.0.1.sites.vcf.gz exac
+bash $HOME/analysis/varmake.sh $DATA/gnomad.exomes.r2.0.1.sites.vcf.gz
 
 #vt decompose $DATA/gnomad.exomes.r2.0.1.sites.vcf.gz -o $DATA/gnomad.exomes.r2.0.1.sites.dec.vcf -s 
 #vt normalize $DATA/gnomad.exomes.r2.0.1.sites.dec.vcf -o $DATA/gnomad.exomes.r2.0.1.sites.vt.vcf -r $DATA/grch37.fa
