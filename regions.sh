@@ -5,7 +5,7 @@ if [ -s coveragecut.txt ]; then
 fi
 q="-x"
 nochrom+="Y"
-while getopts ":v:x:d:r:q:scnwf:" opt; do
+while getopts ":v:x:d:r:q:segcnwf:" opt; do
     case $opt in
         v)
             echo "-version (date) was triggered, input: $OPTARG" >&2
@@ -21,6 +21,14 @@ while getopts ":v:x:d:r:q:scnwf:" opt; do
             echo "-synonymous variant density input into the model was triggered" >&2
             syn="-s"
             s="-synonymous"
+            ;;
+        e)
+            echo "-using exac v1" >&2
+            ver=1
+            ;;
+        g)
+            echo "-using gnomad" >&2
+            ver=2
             ;;
         c)
             echo "-CpG density input into the model was triggered" >&2
@@ -80,8 +88,12 @@ echo $nochrom
 #fi
 mkdir -p results/$date/tmp
 ## generates regions and residuals files ## "${exclude[0]}" "${exclude[1]}"
-python exac-regions.py $ns $var -c "data/exacv2.chr{chrom}.cov.txt.gz" -e data/Homo_sapiens.GRCh37.75.gtf.gz -x data/gnomad-vep-vt.vcf.gz -d "${depth[0]}" -l "${depth[1]}" $x "${exclude[@]}" -f data/hg19.fa > results/$date/exac-regions$n$w.txt # added $file as a placeholder for now, so we don't always hard code files
-#python exac-regions.py $ns $var -c "data/Panel.chr{chrom}.coverage.txt.gz" -e data/Homo_sapiens.GRCh37.75.gtf.gz -x $DATA/ExAC.r1.vt.vep.vcf.gz -d "${depth[0]}" -l "${depth[1]}" > results/$date/exac-regions$n$w.txt # added $file as a placeholder for now, so we don't always hard code files
+if [ $ver -eq 2 ]; then
+    python exac-regions.py $ns $var -c "data/exacv2.chr{chrom}.cov.txt.gz" -e data/Homo_sapiens.GRCh37.75.gtf.gz -x data/gnomad-vep-vt.vcf.gz -d "${depth[0]}" -l "${depth[1]}" $x "${exclude[@]}" -f data/hg19.fa > results/$date/exac-regions$n$w.txt # added $file as a placeholder for now, so we don't always hard code files
+fi
+if [ $ver -eq 1 ]; then
+    python exac-regions.py $ns $var -c "data/Panel.chr{chrom}.coverage.txt.gz" -e data/Homo_sapiens.GRCh37.75.gtf.gz -x $DATA/ExAC.r1.vt.vep.vcf.gz -d "${depth[0]}" -l "${depth[1]}" > results/$date/exac-regions$n$w.txt # added $file as a placeholder for now, so we don't always hard code files
+fi
 python resid-plot.py $ns $syn $cpg $var $r "${chrom[@]}" $q "${nochrom[@]}" -f results/$date/exac-regions$n$w.txt > results/$date/resids$c$s$n$w.txt
 cat <(head -1 results/$date/resids$c$s$n$w.txt) <(sed '1d' results/$date/resids$c$s$n$w.txt | sort -k12,12nr) > results/$date/tmp/residsort$c$s$n$w.txt
 python weightpercentile.py results/$date/tmp/residsort$c$s$n$w.txt > results/$date/weightedresiduals$c$s$n$w.txt
