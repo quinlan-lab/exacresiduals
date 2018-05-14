@@ -366,7 +366,7 @@ def perchrom(vcf_chrom):
     return outs
 
 import multiprocessing as mp
-p = mp.Pool(12)
+p = mp.Pool(22)
 
 for outs in p.imap_unordered(perchrom, ((VCF, str(chrom)) for chrom in chroms)):
     for d in outs:
