@@ -1,8 +1,9 @@
 import subprocess
+import sys
 from itertools import groupby
 from operator import itemgetter
 
-f=open('codingtranscriptome.bed','r')
+f=open(sys.argv[1],'r') # codingtranscriptome.bed
 genes = []
 for line in f:
     fields=line.strip().split('\t')

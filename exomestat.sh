@@ -1,13 +1,27 @@
 DATA=/scratch/ucgd/lustre/u1021864/serial/
 #creates flattened transcriptome
 grep -P 'protein_coding\tstop_codon|protein_coding\tCDS' $DATA/Homo_sapiens.GRCh37.75.gtf | grep -P "^1|^2|^3|^4|^5|^6|^7|^8|^9|^10|^11|^12|^13|^14|^15|^16|^17|^18|^19|^20|^21|^22" | awk '{$4=$4-1; print $0}' OFS='\t' | cut -f 1,4,5,12,16 | sort -k5,5 -k1,1 -k2,2n > codingtranscriptome.bed
-python flattenexome.py | sed 's/"//g' | sed 's/;//g' | sort -k1,1 -k2,2n > flatexome.bed
+python flattenexome.py codingtranscriptome.bed | sed 's/"//g' | sed 's/;//g' | sort -k1,1 -k2,2n > flatexome.bed
 bgzip -c flatexome.bed > flatexome.bed.gz; tabix flatexome.bed.gz
 
+#x chrom exome
+grep -P 'protein_coding\tstop_codon|protein_coding\tCDS' $DATA/Homo_sapiens.GRCh37.75.gtf | grep "^X" | awk '{$4=$4-1; print $0}' OFS='\t' | cut -f 1,4,5,12,16 | sort -k5,5 -k1,1 -k2,2n > xtranscriptome.bed
+python flattenexome.py xtranscriptome.bed | sed 's/"//g' | sed 's/;//g' | sort -k1,1 -k2,2n > xexome.bed
+bgzip -c xexome.bed > xexome.bed.gz; tabix xexome.bed.gz
+
 echo "length of our flattened exome"
-awk '{t+=$3-$2} END {print t}' flatexome.bed # length of flattened exome
+EX=$(awk '{t+=$3-$2} END {print t}' flatexome.bed) # length of flattened exome
 echo "length of our most recent regions"
-awk '{t+=$3-$2} END {print t}' <(zcat ../essentials/gnomadbased-ccrs.bed.gz) # length of final regions: gnomad10x.5-ccrs.bed.gz
+CCR=$(awk '{t+=$3-$2} END {print t}' <(zcat ../essentials/gnomadbased-ccrs.bed.gz)) # length of final regions: gnomad10x.5syn-ccrs.bed.gz
+echo "percent of exome covered"
+bc <<< "scale=4; ($CCR)/($EX)*100"
+
+echo "length of our flattened X chrom exome"
+XEX=$(awk '{t+=$3-$2} END {print t}' xexome.bed) # length of flattened exome
+echo "length of our most recent X chrom regions"
+XCCR=$(awk '{t+=$3-$2} END {print t}' <(zcat xchrom-ccrs.bed.gz)) # length of final regions: gnomad10x.5syn-ccrs.bed.gz
+echo "percent of X chrom exome covered"
+bc <<< "scale=4; ($XCCR)/($XEX)*100"
 
 cat coveragecut.txt segdupscut.txt selfchaincut.txt | cut -f -3 | sort -k1,1 -k2,2n | bedtools merge | bedtools intersect -a - -b flatexome.bed -sorted > cutregions.txt
 awk '{t+=$3-$2} END {print t}' cutregions.txt
