@@ -1,8 +1,8 @@
 from __future__ import print_function
 
-# from UCSC. see data/get-chain.py, pipe output to sort -k1,1 -k2,2n | uniq | bgzip -c > data/self-chains.gt90.bed.gz
+# from UCSC. see data/get-chain.py, pipe output to sort -k1,1 -k2,2n | uniq | bgzip -c > data/self-chains.id90.bed.gz
 
-SELF_CHAINS = "data/self-chains.gt90.bed.gz"
+SELF_CHAINS = "data/self-chains.id90.bed.gz"
 
 # from UCSC.  data/segmental.bed.gz
 
